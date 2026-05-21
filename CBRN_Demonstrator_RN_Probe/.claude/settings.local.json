@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"C:/Users/fried/.platformio/packages/framework-arduinoadafruitnrf52/libraries/Wire/\" 2>&1)",
+      "Read(//c/Users/fried/.platformio/packages/framework-arduinoadafruitnrf52/libraries/Wire/**)",
+      "PowerShell(pio run -e t_echo -t clean 2>&1)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh search *)",
+      "PowerShell(gh search repos \"LilyGo T-Echo\" --limit 5)",
+      "PowerShell($tools = @\\('magick', 'convert', 'inkscape', 'python', 'py'\\); foreach \\($t in $tools\\) { $cmd = Get-Command $t -ErrorAction SilentlyContinue; if \\($cmd\\) { \"FOUND: $t -> $\\($cmd.Source\\)\" } else { \"MISSING: $t\" } })",
+      "WebFetch(domain:upload.wikimedia.org)",
+      "PowerShell(py -c \"import sys; print\\(sys.version\\); print\\(sys.executable\\)\")",
+      "PowerShell(py -c \"import cairosvg, PIL; print\\('cairosvg', cairosvg.__version__\\); print\\('PIL', PIL.__version__\\)\")",
+      "Bash(mkdir -p tools)",
+      "Bash(py -m venv tools/.venv)",
+      "PowerShell(d:\\\\github\\\\CBRN_Demonstrator_RN_Probe\\\\CBRN_Demonstrator_RN_Probe\\\\tools\\\\.venv\\\\Scripts\\\\python.exe -m pip install --quiet svglib reportlab Pillow 2>&1)",
+      "PowerShell(d:\\\\github\\\\CBRN_Demonstrator_RN_Probe\\\\CBRN_Demonstrator_RN_Probe\\\\tools\\\\.venv\\\\Scripts\\\\python.exe -c \"from svglib.svglib import svg2rlg; from reportlab.graphics import renderPM; from PIL import Image; print\\('all imports OK'\\)\")",
+      "PowerShell(d:\\\\github\\\\CBRN_Demonstrator_RN_Probe\\\\CBRN_Demonstrator_RN_Probe\\\\tools\\\\.venv\\\\Scripts\\\\python.exe d:\\\\github\\\\CBRN_Demonstrator_RN_Probe\\\\CBRN_Demonstrator_RN_Probe\\\\tools\\\\gen_thw_logo.py)"
+    ]
+  }
+}
