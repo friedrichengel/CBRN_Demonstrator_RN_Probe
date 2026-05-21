@@ -9,6 +9,9 @@
 #include <Fonts/FreeSans9pt7b.h>
 #include <Fonts/FreeSansBold12pt7b.h>
 
+// Firmware-Version - in main.cpp definiert.
+extern const char* firmwareVersion();
+
 // Eigene SPI-Instanz auf NRF_SPIM0 mit T-Echo-EPD-Pinout.
 // (NRF_SPIM0 ist die gleiche Instanz, die auch LilyGos Original-Demo nutzt.)
 static SPIClass epdSPI(NRF_SPIM0, ePaper_Miso, ePaper_Sclk, ePaper_Mosi);
@@ -73,12 +76,20 @@ void drawOffScreen() {
 // --------------------------------------------------------------
 // Kleines Battery-Icon: 14x7 px Rahmen + 2x3 Nubsi + Fuellung
 // proportional zum Ladestand 0..100 %.
+// Wenn `charging=true` wird statt der Fuellung ein Blitz-Symbol
+// im Icon gezeichnet (USB-Versorgung haengt dran).
 // --------------------------------------------------------------
-static void drawBatteryIcon(int16_t x, int16_t y, int percent) {
+static void drawBatteryIcon(int16_t x, int16_t y, int percent, bool charging) {
   display.drawRect(x, y, 14, 7, EPD_BLACK);
   display.fillRect(x + 14, y + 2, 2, 3, EPD_BLACK);
-  int barW = (12 * constrain(percent, 0, 100)) / 100;
-  if (barW > 0) display.fillRect(x + 1, y + 1, barW, 5, EPD_BLACK);
+  if (charging) {
+    // Stilisierter Blitz: oberes "\" + unteres "/" als zwei Dreiecke
+    display.fillTriangle(x + 8, y + 1,  x + 4, y + 4,  x + 7, y + 4, EPD_BLACK);
+    display.fillTriangle(x + 9, y + 2,  x + 11, y + 5,  x + 6, y + 5, EPD_BLACK);
+  } else {
+    int barW = (12 * constrain(percent, 0, 100)) / 100;
+    if (barW > 0) display.fillRect(x + 1, y + 1, barW, 5, EPD_BLACK);
+  }
 }
 
 // --------------------------------------------------------------
@@ -121,13 +132,19 @@ static void drawStatusScreen() {
   display.setTextColor(EPD_BLACK);
 
   // Battery-Indikator oben rechts (sehr klein, Default-Font 6x8).
-  // Wird alle 5 min in loop() ueber updateDisplay() neu eingelesen.
-  int pct = batteryPercent();
-  drawBatteryIcon(150, 6, pct);
+  // Wird alle 5 min in loop() ueber updateDisplay() neu eingelesen,
+  // bzw. sofort bei USB-Stecken/Ziehen.
+  bool charging = batteryCharging();
+  int  pct      = batteryPercent();
+  drawBatteryIcon(150, 6, pct, charging);
   display.setFont();
   display.setTextSize(1);
   display.setCursor(170, 7);
-  display.printf("%3d%%", pct);
+  if (charging) {
+    display.print("USB");
+  } else {
+    display.printf("%3d%%", pct);
+  }
 
   display.setFont(&FreeSansBold12pt7b);
   display.setCursor(5, 30);
@@ -167,6 +184,14 @@ static void drawStatusScreen() {
   } else {
     display.printf("> %s", menu_label[menuState]);
   }
+
+  // Firmware-Version unten rechts, klein im Default-Font 6x8
+  display.setFont();
+  display.setTextSize(1);
+  const char* ver = firmwareVersion();
+  uint16_t vw = (uint16_t)strlen(ver) * 6 + 6;     // +6 fuer das 'v'
+  display.setCursor(200 - vw - 2, 192);
+  display.printf("v%s", ver);
 
   refreshEpd();
 }

@@ -152,10 +152,17 @@ Lesung erfolgt über ADC am `Adc_Pin` (P0.04) durch den 2:1
 Spannungsteiler des T-Echo. Lineare Schätzung zwischen 3,0 V (0 %) und
 4,2 V (100 %) – nicht kalibriert, reicht aber als Trainings-Indikator.
 
-Der Display-Refresh ist teuer (~2 s), also wird der Indikator nur **alle
-5 Minuten** aktualisiert (`BATTERY_REFRESH_MS` in `main.cpp`). Der
-Refresh wird unterdrückt während Edit-Modus und in der Kontakt-
-Vollansicht, damit dort nichts ungewollt überschrieben wird.
+**Wenn USB angeschlossen ist** (VBUS am `NRF_POWER->USBREGSTATUS` erkannt),
+zeigt das Icon einen Blitz und der Text neben dem Icon steht auf `USB`
+statt einem Prozentwert – die ADC-Lesung ist beim Laden nicht
+aussagekräftig (Versorgungsspannung verfälscht den Akku-Wert auf "100 %").
+Beim Abstecken triggert die Firmware sofort einen Display-Refresh,
+damit nicht 5 min lang die alte USB-Anzeige stehen bleibt.
+
+Der periodische Display-Refresh ist teuer (~2 s), also wird der Indikator
+ansonsten nur **alle 5 Minuten** aktualisiert (`BATTERY_REFRESH_MS` in
+`main.cpp`). Der Refresh wird unterdrückt während Edit-Modus und in
+der Kontakt-Vollansicht, damit dort nichts ungewollt überschrieben wird.
 
 ### THW-Logo regenerieren
 

@@ -12,3 +12,8 @@ float batteryVolts();
 
 // Lineare Schaetzung 0..100 % aus 3.0 V .. 4.2 V.
 int batteryPercent();
+
+// true wenn USB-VBus erkannt wird (Geraet haengt am USB).
+// Waehrend USB-Versorgung ist batteryPercent() nicht aussagekraeftig,
+// weil dann die Versorgungsspannung am Akku-Pin als 100 % gelesen wird.
+bool batteryCharging();

@@ -1,5 +1,6 @@
 #include "battery.h"
 #include "utilities.h"
+#include <nrf.h>
 
 // Adafruit-nRF52-BSP Default: AR_INTERNAL (0.6 V Ref, Gain 1/6) -> max 3.6 V am Pin.
 // Mit 12-bit ADC: roher Wert 0..4095 entspricht 0..3.6 V.
@@ -25,4 +26,9 @@ int batteryPercent() {
   if (v >= VBAT_FULL)  return 100;
   if (v <= VBAT_EMPTY) return 0;
   return (int)((v - VBAT_EMPTY) / (VBAT_FULL - VBAT_EMPTY) * 100.0f);
+}
+
+bool batteryCharging() {
+  // VBUSDETECT-Bit in NRF_POWER->USBREGSTATUS ist 1 wenn 5 V am USB anliegen.
+  return (NRF_POWER->USBREGSTATUS & POWER_USBREGSTATUS_VBUSDETECT_Msk) != 0;
 }
