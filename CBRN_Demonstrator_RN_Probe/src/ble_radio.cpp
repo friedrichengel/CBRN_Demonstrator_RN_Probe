@@ -94,7 +94,10 @@ void startAdvertising() {
     Serial.printf("[BLE] adv_set_configure err=0x%lx\n", (unsigned long)err);
     return;
   }
-  err = sd_ble_gap_adv_start(adv_handle, BLE_CONN_CFG_TAG_DEFAULT);
+  // CONN_CFG_PERIPHERAL (= 1) ist der Tag mit dem Bluefruit::begin() die
+  // SoftDevice konfiguriert. BLE_CONN_CFG_TAG_DEFAULT (= 0) ist NICHT
+  // konfiguriert und wuerde NRF_ERROR_NOT_FOUND zurueckliefern.
+  err = sd_ble_gap_adv_start(adv_handle, CONN_CFG_PERIPHERAL);
   if (err != NRF_SUCCESS) {
     Serial.printf("[BLE] adv_start err=0x%lx\n", (unsigned long)err);
     return;
