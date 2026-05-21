@@ -71,8 +71,20 @@ Globale Zustände:
 
 ## Bedienung
 
-Zwei Tasten – Hauptknopf (BTN) und Touchfläche (TCH). Jeder Druck
-zählt mit Debounce ≥ 50 ms; ein Halten ≥ 800 ms zählt als Long-Press.
+Nur **ein** Bedienelement: der seitliche Hauptknopf (BTN). Die kapazitive
+Touchfläche des T-Echo wird nicht verwendet (war hardwareseitig nicht
+zuverlässig genug — der TTP223 lieferte auf unseren Boards spontane LOW-Pulse
+durch EMI vom EPD-Refresh und reagierte teilweise nicht auf echte Berührung).
+
+Drei Gesten am BTN:
+
+| Geste | Definition |
+|---|---|
+| **Kurz** | drücken und in unter 800 ms wieder loslassen |
+| **Doppel** | zwei Kurzdrücke innerhalb von 350 ms |
+| **Lang** | ≥ 800 ms gedrückt halten |
+
+Debounce ist 50 ms.
 
 ### Menü-Punkte
 
@@ -89,17 +101,31 @@ Mit BTN-kurz weiter, mit TCH-kurz zurück:
 
 ### Bedienlogik
 
-| Aktion | Was passiert |
+**Außerhalb Edit-Modus (Menü-Navigation):**
+
+| Geste | Was passiert |
 |---|---|
-| BTN kurz im Status | nächster Menüpunkt |
-| BTN lang im Status | Aktiv an/aus toggeln (gleicher Shortcut wie Menüpunkt "Aktiv") |
-| BTN lang in *Sender-Nr / Nuklid / Max.Dosis / Aktiv / Reichweite* | Edit-Modus an/aus |
-| TCH kurz im Edit-Modus | Wert +1 (mit angepasster Schrittweite bei Dosis) |
-| TCH lang im Edit-Modus | Autorepeat (250 ms). **1. langes Halten zählt aufwärts, beim nächsten Halten abwärts, dann wieder aufwärts** – Richtung wird beim Eintritt in den Edit-Modus auf "aufwärts" zurückgesetzt |
-| BTN kurz im Edit-Modus | Speichern, Edit verlassen, Advertising neu starten |
-| BTN lang im Menüpunkt *Kontakt* | Adresskarte im Vollbild zeigen |
-| BTN kurz oder TCH kurz in Adresskarte | zurück zum Status |
-| BTN lang im Menüpunkt *Aus* | Gerät schaltet ab (siehe unten) |
+| Kurz | nächster Menüpunkt |
+| Doppel | vorheriger Menüpunkt |
+| Lang | Aktion des aktuellen Menüpunkts: |
+| | • Status → Aktiv an/aus toggeln |
+| | • Sender-Nr / Nuklid / Max.Dosis / Aktiv / Reichweite → Edit-Modus betreten |
+| | • Kontakt → Adresskarte anzeigen |
+| | • Aus → Gerät abschalten |
+
+**Innerhalb Edit-Modus:**
+
+| Geste | Was passiert |
+|---|---|
+| Kurz | Wert +1 (Schrittweite je Feld: Sender-Nr ±1, Dosis ±50/±1000/±10000 je nach Bereich, Aktiv/Reichweite Toggle) |
+| Lang (halten) | Autorepeat mit aktueller Richtung. **1. Halten zählt hoch, 2. Halten runter, 3. hoch, …** Loslassen flippt die Richtung für das nächste Halten. Beim Eintritt in den Edit-Modus startet die Richtung auf "hoch". Für Aktiv/Reichweite (Bool) wirkt nur der erste Tick — kein Autorepeat-Flackern. |
+| Doppel | Speichern, Edit-Modus verlassen, Advertising mit neuen Werten neu starten |
+
+**In Kontakt-Vollansicht:**
+
+| Geste | Was passiert |
+|---|---|
+| Jede Geste | zurück zum Status-Screen |
 
 ### Abschalten
 
@@ -249,8 +275,13 @@ Bootloader nimmt die neue Firmware an.
 - **Flackern beim Refresh**: Der SSD1681 macht beim Full-Refresh das
   klassische E-Paper-Invertieren (schwarz/weiß flackert ~3 s lang).
   `display_ui.cpp` nutzt deshalb `displayPartial()` für routine
-  Aktualisierungen (Status, Kontakt) und alle 20 Updates einen
-  Full-Refresh zum Aufräumen von Ghosting. Beim Abschalten
+  Aktualisierungen (Status, Kontakt). Ein Full-Refresh zum Aufräumen
+  von Ghosting wird ausgelöst durch zwei unabhängige Trigger — was
+  zuerst eintritt:
+  - **10 Partials** seit dem letzten Full (interaktionsbasiert) oder
+  - **5 min** seit dem letzten Full (zeitbasiert, für Standby).
+
+  Beide Zähler werden bei jedem Full zurückgesetzt. Beim Abschalten
   (`drawOffScreen`) wird immer Full gemacht, damit das Logo sauber
   steht. Die Adafruit-EPD-Library spammt bei jedem Partial-Refresh die
   Zeilen `---------------partial=============` und `Transfering:` auf

@@ -28,10 +28,10 @@ extern const char* menu_label[MENU_COUNT];
 void wertAendern(int delta);
 void printStatus();
 
-// Vom Input-Modul aufgerufene Handler:
-void onBtnShort();
-void onBtnLong();
-void onTouchShort();
-void onTouchLong();
-void onTouchRepeat();
-void onTouchLongRelease();
+// Vom Input-Modul aufgerufene Handler. BTN ist das einzige Bedienelement
+// (Touchflaeche wurde rausgenommen).
+void onBtnShort();         // Kurzdruck: vorwaerts / +1
+void onBtnDouble();        // Doppelklick: rueckwaerts / Speichern+Edit-Ende
+void onBtnLong();          // Langdruck: Menu-Aktion / 1. Autorepeat-Tick
+void onBtnRepeat();        // Autorepeat-Ticks waehrend Langdrucks
+void onBtnLongRelease();   // Loslassen nach Langdruck: Richtung flippt

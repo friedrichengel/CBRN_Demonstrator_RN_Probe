@@ -4,8 +4,6 @@
 #include "ble_radio.h"
 #include "power.h"
 #include "debug.h"
-// bluefruit.h-Include nicht mehr noetig - stopAdvertising/startAdvertising
-// kapseln den BLE-Zugriff jetzt.
 
 MenuState menuState = MENU_STATUS;
 bool      editMode  = false;
@@ -15,6 +13,12 @@ const char* menu_label[MENU_COUNT] = {
   "Status", "Sender-Nr", "Nuklid", "Max.Dosis", "Aktiv",
   "Reichweite", "Kontakt", "Aus"
 };
+
+// Richtung fuer den BTN-Autorepeat im Edit-Modus. Wird beim Release einer
+// Long-Press-Session umgedreht (toggle nach jedem Halten):
+// 1. Halten zaehlt hoch, 2. runter, 3. hoch, ...
+// Wird beim Eintritt in den Edit-Modus auf +1 zurueckgesetzt.
+static int btn_dir = +1;
 
 void wertAendern(int delta) {
   switch (menuState) {
@@ -49,9 +53,6 @@ void printStatus() {
     menu_label[menuState], editMode ? "[EDIT]" : "");
 }
 
-// forward decl - Definition steht weiter unten bei den Touch-Handlern
-static void resetTouchDirection();
-
 static bool leaveKontaktView() {
   if (view == VIEW_KONTAKT) {
     view = VIEW_NORMAL;
@@ -62,13 +63,24 @@ static bool leaveKontaktView() {
   return false;
 }
 
+static void saveAndExitEdit() {
+  editMode = false;
+  saveConfig();
+  if (cfg.aktiv) startAdvertising();
+  else           stopAdvertising();
+}
+
+// Autorepeat fuer Bool-Felder unterdruecken, sonst flippen sie hin und her.
+// Erstes onBtnLong wendet schon einmal an, das reicht zum Toggeln.
+static bool isBoolField() {
+  return menuState == MENU_AKTIV || menuState == MENU_REICHWEITE;
+}
+
 void onBtnShort() {
+  DBG_PRINTLN(">>>>>>>>>> BTN short");
   if (leaveKontaktView()) return;
   if (editMode) {
-    editMode = false;
-    saveConfig();
-    if (cfg.aktiv) startAdvertising();
-    else           stopAdvertising();
+    wertAendern(+1);
   } else {
     menuState = (MenuState)((menuState + 1) % MENU_COUNT);
   }
@@ -76,8 +88,36 @@ void onBtnShort() {
   updateDisplay();
 }
 
+void onBtnDouble() {
+  DBG_PRINTLN(">>>>>>>>>> BTN double");
+  if (leaveKontaktView()) return;
+  if (editMode) {
+    saveAndExitEdit();
+  } else {
+    menuState = (menuState == MENU_STATUS)
+      ? (MenuState)(MENU_COUNT - 1)
+      : (MenuState)(menuState - 1);
+  }
+  printStatus();
+  updateDisplay();
+}
+
 void onBtnLong() {
-  if (view == VIEW_KONTAKT) return;
+  DBG_PRINTLN(">>>>>>>>>> BTN long");
+  if (view == VIEW_KONTAKT) {
+    // jede Geste in Kontakt-Vollansicht: zurueck zu Status
+    leaveKontaktView();
+    return;
+  }
+  if (editMode) {
+    // Erster Tick der Autorepeat-Session: aktuelle Richtung anwenden
+    DBG_PRINTF(">>>>>>>>>>   dir=%+d\n", btn_dir);
+    wertAendern(btn_dir);
+    printStatus();
+    updateDisplay();
+    return;
+  }
+  // Ausserhalb Edit: Aktion abhaengig vom Menuepunkt
   switch (menuState) {
     case MENU_STATUS:
       cfg.aktiv = !cfg.aktiv;
@@ -92,59 +132,25 @@ void onBtnLong() {
       powerOff();      // kehrt nicht zurueck (System OFF)
       break;
     default:
-      editMode = !editMode;
-      if (editMode) resetTouchDirection();    // frisch in den Edit-Modus
+      // Wertpunkt: Edit-Modus betreten, Richtung frisch starten
+      editMode = true;
+      btn_dir  = +1;
       break;
   }
   printStatus();
   updateDisplay();
 }
 
-void onTouchShort() {
-  DBG_PRINTLN(">>>>>>>>>> TCH onShort");
-  if (leaveKontaktView()) return;
-  if (editMode) {
-    wertAendern(+1);
-  } else {
-    menuState = (menuState == MENU_STATUS)
-      ? (MenuState)(MENU_COUNT - 1)
-      : (MenuState)(menuState - 1);
-  }
-  printStatus();
-  updateDisplay();
-}
-
-// Richtung fuer die Touch-Autorepeat-Funktion. Wird beim Release einer
-// Long-Press-Session umgedreht (NICHT beim Press-Beginn), damit das
-// Verhalten mit Toggle-Mode-Touch-ICs funktioniert, die nur eine Flanke
-// pro physischer Beruehrung erzeugen.
-static int touch_dir = +1;
-
-void onTouchLong() {
-  DBG_PRINTLN(">>>>>>>>>> TCH onLong");
-  if (!editMode) { DBG_PRINTLN(">>>>>>>>>>   skipped (editMode=false)"); return; }
-  DBG_PRINTF(">>>>>>>>>>   dir=%+d\n", touch_dir);
-  wertAendern(touch_dir);
-  printStatus();
-  updateDisplay();
-}
-
-void onTouchRepeat() {
-  if (editMode) {
-    wertAendern(touch_dir);
-    updateDisplay();
-  }
-}
-
-void onTouchLongRelease() {
-  DBG_PRINTLN(">>>>>>>>>> TCH onLongRelease");
+void onBtnRepeat() {
   if (!editMode) return;
-  touch_dir = -touch_dir;
-  DBG_PRINTF(">>>>>>>>>>   next dir=%+d\n", touch_dir);
+  if (isBoolField()) return;     // Bool nicht in Autorepeat
+  wertAendern(btn_dir);
+  updateDisplay();
 }
 
-// Wird aus onBtnLong aufgerufen, wenn der Edit-Modus betreten wird,
-// damit die Touch-Richtung bei jedem Eintritt frisch mit +1 startet.
-static void resetTouchDirection() {
-  touch_dir = +1;
+void onBtnLongRelease() {
+  if (!editMode) return;
+  if (isBoolField()) return;     // Bool: Richtung egal
+  btn_dir = -btn_dir;
+  DBG_PRINTF(">>>>>>>>>> BTN long-release, next dir=%+d\n", btn_dir);
 }

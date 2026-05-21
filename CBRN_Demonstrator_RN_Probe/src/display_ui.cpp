@@ -16,16 +16,26 @@ static SPIClass epdSPI(NRF_SPIM0, ePaper_Miso, ePaper_Sclk, ePaper_Mosi);
 Adafruit_SSD1681 display(200, 200,
   ePaper_Dc, ePaper_Rst, ePaper_Cs, /*SRAM_CS=*/-1, ePaper_Busy, &epdSPI);
 
-// Partial-Refresh reduziert das Flackern (kein Voll-Invertieren), kann aber
-// nach vielen Aktualisierungen Ghosting verursachen. Deshalb periodisch
-// einen Full-Refresh einstreuen. Erster Refresh nach Boot ist immer full.
-static constexpr uint16_t MAX_PARTIAL_BEFORE_FULL = 20;
-static uint16_t partialCount = MAX_PARTIAL_BEFORE_FULL;  // -> erstes Mal full
+// Partial-Refresh reduziert das Flackern, kann aber nach vielen
+// Aktualisierungen Ghosting verursachen. Full-Refresh wird ausgeloest
+// durch *zwei* unabhaengige Trigger - was zuerst eintritt:
+//   - 10 Partials seit dem letzten Full       (Interaktions-basiert)
+//   - 5 Minuten seit dem letzten Full         (Zeit-basiert, fuer Standby)
+// Sobald einer der beiden Trigger feuert, werden BEIDE Zaehler resettet.
+// Erster Refresh nach Boot ist immer full.
+static constexpr uint16_t MAX_PARTIAL_BEFORE_FULL  = 10;
+static constexpr uint32_t MAX_TIME_BEFORE_FULL_MS  = 5UL * 60UL * 1000UL;
+static uint16_t partialCount    = MAX_PARTIAL_BEFORE_FULL;  // -> erstes Mal full
+static uint32_t lastFullRefresh = 0;
 
 static void refreshEpd() {
-  if (partialCount >= MAX_PARTIAL_BEFORE_FULL) {
+  uint32_t now = millis();
+  bool needFull = (partialCount >= MAX_PARTIAL_BEFORE_FULL) ||
+                  (now - lastFullRefresh >= MAX_TIME_BEFORE_FULL_MS);
+  if (needFull) {
     display.display();                          // full - raeumt Ghosting weg
-    partialCount = 0;
+    partialCount    = 0;
+    lastFullRefresh = now;
   } else {
     display.displayPartial(0, 0, 199, 199);     // partial - kein Flackern
     partialCount++;
@@ -98,7 +108,7 @@ static void drawKontaktScreen() {
 
   display.drawLine(0, 182, 200, 182, EPD_BLACK);
   display.setCursor(5, 190);
-  display.print("BTN / TCH = zurueck");
+  display.print("BTN = zurueck");
 
   refreshEpd();
 }
@@ -151,7 +161,7 @@ static void drawStatusScreen() {
   display.setFont(&FreeSans9pt7b);
   display.setCursor(5, 178);
   if (menuState == MENU_STATUS) {
-    display.print("BTN=Menu  TCH=+Wert");
+    display.print("kurz/lang/2x BTN");
   } else if (editMode) {
     display.printf("[EDIT] %s", menu_label[menuState]);
   } else {
