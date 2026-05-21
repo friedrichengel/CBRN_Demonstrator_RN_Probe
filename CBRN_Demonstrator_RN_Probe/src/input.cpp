@@ -85,10 +85,13 @@ static void processInput(InputState& s,
       onRepeat();
       // Direkt nach dem (oft blockierenden) Callback erneut pruefen, ob
       // der Pin schon HIGH ist - dann sofort Autorepeat stoppen, statt
-      // bis zur naechsten Loop-Iteration zu warten.
+      // bis zur naechsten Loop-Iteration zu warten. Den Release-Callback
+      // MUESSEN wir dabei selbst feuern, sonst verpassen wir ihn (der
+      // HIGH-Edge-Handler unten wird durch das fruehe return uebersprungen).
       if (digitalRead(s.pin) == HIGH) {
         s.releaseTime = millis();
         s.lastRaw = HIGH;
+        if (onLongRelease) onLongRelease();
         return;
       }
     }
