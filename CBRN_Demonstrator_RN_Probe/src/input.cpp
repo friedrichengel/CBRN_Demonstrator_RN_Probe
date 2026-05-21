@@ -1,5 +1,6 @@
 #include "input.h"
 #include "menu.h"
+#include "debug.h"
 
 static constexpr uint32_t DEBOUNCE_MS    = 50;
 static constexpr uint32_t LONG_PRESS_MS  = 800;
@@ -55,10 +56,10 @@ static void processInput(InputState& s,
   }
   uint32_t now = millis();
 
-  // DEBUG: alle Touch-Edges loggen
+  // Touch-Edges nur bei DEBUG_VERBOSE loggen
   if (s.pin == PIN_TOUCH && raw != s.lastRaw) {
-    Serial.printf(">>>>>>>>>> TCH edge: %s @%lu (releaseTime=%lu)\n",
-                  raw ? "HIGH" : "LOW", now, s.releaseTime);
+    DBG_PRINTF(">>>>>>>>>> TCH edge: %s @%lu (releaseTime=%lu)\n",
+               raw ? "HIGH" : "LOW", now, s.releaseTime);
   }
 
   // HIGH -> LOW Flanke = potentieller Press-Beginn.

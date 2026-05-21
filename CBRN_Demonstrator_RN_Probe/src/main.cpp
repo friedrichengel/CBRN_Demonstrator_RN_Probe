@@ -15,6 +15,7 @@
 #include "input.h"
 #include "menu.h"
 #include "battery.h"
+#include "debug.h"
 
 // =============================================================
 // PROBE-MODUS: auf 1 setzen wenn der echte Touch-Pin gesucht
@@ -157,12 +158,12 @@ void loop() {
     updateDisplay();
   }
 
-  // DEBUG: alle 2 s den aktuellen Touch-Zustand loggen
+  // Periodische Touch-Zustands-Anzeige - nur bei DEBUG_VERBOSE
   static uint32_t lastTouchPoll = 0;
   if (now - lastTouchPoll >= 2000) {
     lastTouchPoll = now;
-    Serial.printf(">>>>>>>>>> TCH state @%lu: %s\n",
-                  now, digitalRead(PIN_TOUCH) ? "HIGH" : "LOW");
+    DBG_PRINTF(">>>>>>>>>> TCH state @%lu: %s\n",
+               now, digitalRead(PIN_TOUCH) ? "HIGH" : "LOW");
   }
 
   delay(10);

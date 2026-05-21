@@ -16,13 +16,20 @@ static SPIClass epdSPI(NRF_SPIM0, ePaper_Miso, ePaper_Sclk, ePaper_Mosi);
 Adafruit_SSD1681 display(200, 200,
   ePaper_Dc, ePaper_Rst, ePaper_Cs, /*SRAM_CS=*/-1, ePaper_Busy, &epdSPI);
 
-// Partial-Refresh war zwar flackerfrei, hat aber EMI in den Touch-IC
-// eingestreut -> wir bleiben bei full refresh. Wenn das Flackern wieder
-// stoeren sollte: erst muss die Touch-Empfindlichkeit fuer EMI geloest
-// sein (mehr Multi-Sampling, oder Hardware-Massnahme), dann erst zurueck
-// auf partial.
+// Partial-Refresh reduziert das Flackern (kein Voll-Invertieren), kann aber
+// nach vielen Aktualisierungen Ghosting verursachen. Deshalb periodisch
+// einen Full-Refresh einstreuen. Erster Refresh nach Boot ist immer full.
+static constexpr uint16_t MAX_PARTIAL_BEFORE_FULL = 20;
+static uint16_t partialCount = MAX_PARTIAL_BEFORE_FULL;  // -> erstes Mal full
+
 static void refreshEpd() {
-  display.display();
+  if (partialCount >= MAX_PARTIAL_BEFORE_FULL) {
+    display.display();                          // full - raeumt Ghosting weg
+    partialCount = 0;
+  } else {
+    display.displayPartial(0, 0, 199, 199);     // partial - kein Flackern
+    partialCount++;
+  }
 }
 
 // --------------------------------------------------------------

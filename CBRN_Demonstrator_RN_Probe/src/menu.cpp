@@ -3,6 +3,7 @@
 #include "display_ui.h"
 #include "ble_radio.h"
 #include "power.h"
+#include "debug.h"
 // bluefruit.h-Include nicht mehr noetig - stopAdvertising/startAdvertising
 // kapseln den BLE-Zugriff jetzt.
 
@@ -100,7 +101,7 @@ void onBtnLong() {
 }
 
 void onTouchShort() {
-  Serial.println(">>>>>>>>>> TCH onShort");
+  DBG_PRINTLN(">>>>>>>>>> TCH onShort");
   if (leaveKontaktView()) return;
   if (editMode) {
     wertAendern(+1);
@@ -120,9 +121,9 @@ void onTouchShort() {
 static int touch_dir = +1;
 
 void onTouchLong() {
-  Serial.println(">>>>>>>>>> TCH onLong");
-  if (!editMode) { Serial.println(">>>>>>>>>>   skipped (editMode=false)"); return; }
-  Serial.printf(">>>>>>>>>>   dir=%+d\n", touch_dir);
+  DBG_PRINTLN(">>>>>>>>>> TCH onLong");
+  if (!editMode) { DBG_PRINTLN(">>>>>>>>>>   skipped (editMode=false)"); return; }
+  DBG_PRINTF(">>>>>>>>>>   dir=%+d\n", touch_dir);
   wertAendern(touch_dir);
   printStatus();
   updateDisplay();
@@ -136,10 +137,10 @@ void onTouchRepeat() {
 }
 
 void onTouchLongRelease() {
-  Serial.println(">>>>>>>>>> TCH onLongRelease");
+  DBG_PRINTLN(">>>>>>>>>> TCH onLongRelease");
   if (!editMode) return;
   touch_dir = -touch_dir;
-  Serial.printf(">>>>>>>>>>   next dir=%+d\n", touch_dir);
+  DBG_PRINTF(">>>>>>>>>>   next dir=%+d\n", touch_dir);
 }
 
 // Wird aus onBtnLong aufgerufen, wenn der Edit-Modus betreten wird,
