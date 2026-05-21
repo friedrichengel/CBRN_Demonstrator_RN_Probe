@@ -1,0 +1,80 @@
+// ========================================================================
+// TOUCH-PIN-PROBE - vorruebergehende main.cpp zur Pin-Identifikation.
+//
+// Verwendung:
+//   1. src/main.cpp umbenennen in src/main.cpp.bak
+//   2. Diese Datei kopieren als src/main.cpp (Endung .disabled weglassen)
+//   3. Build + Flash
+//   4. Serial Monitor oeffnen
+//   5. Das Touchfeld auf der Vorderseite des T-Echo wiederholt beruehren
+//   6. Serial sagt dir, welcher Pin auf die Beruehrung reagiert
+//   7. Danach: src/main.cpp loeschen, src/main.cpp.bak zurueck nach src/main.cpp
+// ========================================================================
+
+#include <Arduino.h>
+#include <Adafruit_TinyUSB.h>
+#include "utilities.h"
+
+// Kandidaten-Pins fuer den Touch-Eingang.
+// Alle freien/verdaechtigen GPIOs des nRF52840 auf dem T-Echo.
+// Schon vergebene Pins (EPD, LoRa, Flash, GPS, Power) sind absichtlich draussen,
+// weil die staendig schalten und das Bild stoeren wuerden.
+struct PinCand { uint8_t pin; const char* name; };
+static const PinCand CANDIDATES[] = {
+  { _PINNUM(0,  6), "P0.06"          },
+  { _PINNUM(0,  8), "P0.08"          },
+  { _PINNUM(0, 11), "P0.11 (TTP223?)" },   // unsere aktuelle Annahme
+  { _PINNUM(0, 13), "P0.13 (PEnable1?)" },
+  { _PINNUM(0, 15), "P0.15"          },
+  { _PINNUM(0, 21), "P0.21 (LoRa_Dio3)" },
+  { _PINNUM(1,  0), "P1.00"          },
+  { _PINNUM(1,  7), "P1.07"          },
+  { _PINNUM(1, 13), "P1.13 (Flash_Miso)" },
+  { _PINNUM(1, 14), "P1.14 (Flash_Sclk)" },
+};
+static constexpr size_t N = sizeof(CANDIDATES) / sizeof(CANDIDATES[0]);
+static bool last[N];
+
+void setup() {
+  Serial.begin(115200);
+  uint32_t t = millis();
+  while (!Serial && millis() - t < 3000) delay(10);
+  Serial.println("\n=== TOUCH-PIN-PROBE ===");
+
+  // Peripherie-Rail an, damit eventuelle ICs versorgt sind
+  pinMode(Power_Enable_Pin, OUTPUT);
+  digitalWrite(Power_Enable_Pin, HIGH);
+  delay(200);
+
+  // Kandidaten als Input mit Pull-Up - so liest ein floatender Pin HIGH,
+  // ein extern getriebener Pin zeigt seinen echten Pegel.
+  for (size_t i = 0; i < N; i++) {
+    pinMode(CANDIDATES[i].pin, INPUT_PULLUP);
+  }
+  delay(20);
+  for (size_t i = 0; i < N; i++) {
+    last[i] = digitalRead(CANDIDATES[i].pin);
+  }
+
+  Serial.println("\n-- Initial state nach Boot:");
+  for (size_t i = 0; i < N; i++) {
+    Serial.printf("  %-22s = %s\n",
+                  CANDIDATES[i].name, last[i] ? "HIGH" : "LOW");
+  }
+  Serial.println("\n>>> Beruehre jetzt das Touchfeld - der reagierende Pin wird hier gemeldet:\n");
+}
+
+void loop() {
+  for (size_t i = 0; i < N; i++) {
+    bool now = digitalRead(CANDIDATES[i].pin);
+    if (now != last[i]) {
+      Serial.printf("  %-22s : %s  ->  %s   @ %lu ms\n",
+                    CANDIDATES[i].name,
+                    last[i] ? "HIGH" : "LOW",
+                    now      ? "HIGH" : "LOW",
+                    millis());
+      last[i] = now;
+    }
+  }
+  delay(10);
+}

@@ -33,12 +33,26 @@ static bool readDebounced(uint8_t pin, uint8_t samples = 5) {
   return (low_count > samples / 2) ? LOW : HIGH;
 }
 
+// Polaritaet des Touch-IC. 0 = normal active-low (Beruehrung = LOW),
+// 1 = invertiert (Beruehrung = HIGH). Auf dem T-Echo mit TTP223 ist
+// 0 korrekt.
+#define TOUCH_INVERT 0
+
 static void processInput(InputState& s,
                          void(*onShort)(), void(*onLong)(), void(*onRepeat)(),
                          void(*onLongRelease)() = nullptr) {
   // Touch wird mit Mehrfach-Sampling gelesen (EMI-Filter),
   // Button als zuverlaessiger mechanischer Schalter nur einmal.
-  bool raw = (s.pin == PIN_TOUCH) ? readDebounced(s.pin) : digitalRead(s.pin);
+  // Touch ist optional invertiert je nach TOUCH_INVERT (siehe oben).
+  bool raw;
+  if (s.pin == PIN_TOUCH) {
+    raw = readDebounced(s.pin);
+#if TOUCH_INVERT
+    raw = !raw;
+#endif
+  } else {
+    raw = digitalRead(s.pin);
+  }
   uint32_t now = millis();
 
   // DEBUG: alle Touch-Edges loggen
