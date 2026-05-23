@@ -15,7 +15,12 @@
       "Bash(py -m venv tools/.venv)",
       "PowerShell(d:\\\\github\\\\CBRN_Demonstrator_RN_Probe\\\\CBRN_Demonstrator_RN_Probe\\\\tools\\\\.venv\\\\Scripts\\\\python.exe -m pip install --quiet svglib reportlab Pillow 2>&1)",
       "PowerShell(d:\\\\github\\\\CBRN_Demonstrator_RN_Probe\\\\CBRN_Demonstrator_RN_Probe\\\\tools\\\\.venv\\\\Scripts\\\\python.exe -c \"from svglib.svglib import svg2rlg; from reportlab.graphics import renderPM; from PIL import Image; print\\('all imports OK'\\)\")",
-      "PowerShell(d:\\\\github\\\\CBRN_Demonstrator_RN_Probe\\\\CBRN_Demonstrator_RN_Probe\\\\tools\\\\.venv\\\\Scripts\\\\python.exe d:\\\\github\\\\CBRN_Demonstrator_RN_Probe\\\\CBRN_Demonstrator_RN_Probe\\\\tools\\\\gen_thw_logo.py)"
+      "PowerShell(d:\\\\github\\\\CBRN_Demonstrator_RN_Probe\\\\CBRN_Demonstrator_RN_Probe\\\\tools\\\\.venv\\\\Scripts\\\\python.exe d:\\\\github\\\\CBRN_Demonstrator_RN_Probe\\\\CBRN_Demonstrator_RN_Probe\\\\tools\\\\gen_thw_logo.py)",
+      "PowerShell($pio = \"$env:USERPROFILE\\\\.platformio\\\\penv\\\\Scripts\\\\pio.exe\"; if \\(Test-Path $pio\\) { & $pio run -e t_echo 2>&1 | Select-Object -Last 30 } else { \"pio.exe nicht gefunden unter $pio\" })",
+      "PowerShell(& \"$env:USERPROFILE\\\\.platformio\\\\penv\\\\Scripts\\\\pio.exe\" run -e t_echo 2>&1 | Select-Object -Last 12)",
+      "PowerShell(& \"$env:USERPROFILE\\\\.platformio\\\\penv\\\\Scripts\\\\pio.exe\" run -e t_echo 2>&1 | Select-Object -Last 20)",
+      "PowerShell(& \"$env:USERPROFILE\\\\.platformio\\\\penv\\\\Scripts\\\\pio.exe\" run -e t_echo 2>&1 | Select-Object -Last 15)",
+      "PowerShell(& \"$env:USERPROFILE\\\\.platformio\\\\penv\\\\Scripts\\\\pio.exe\" run -e t_echo 2>&1 | Select-Object -Last 10)"
     ]
   }
 }

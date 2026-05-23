@@ -10,7 +10,7 @@ bool      editMode  = false;
 View      view      = VIEW_NORMAL;
 
 const char* menu_label[MENU_COUNT] = {
-  "Status", "Sender-Nr", "Nuklid", "Max.Dosis", "Aktiv",
+  "Status", "Sender-Nr", "Nuklid", "Max.Dosis", "Einheit", "Aktiv",
   "Reichweite", "Kontakt", "Aus"
 };
 
@@ -19,6 +19,31 @@ const char* menu_label[MENU_COUNT] = {
 // 1. Halten zaehlt hoch, 2. runter, 3. hoch, ...
 // Wird beim Eintritt in den Edit-Modus auf +1 zurueckgesetzt.
 static int btn_dir = +1;
+
+// Autorepeat-Beschleunigung (Treppe): alle REPEAT_STEP_TICKS Ticks waechst der
+// Schritt um Faktor 10. Sequenz also +/-1, dann +/-10, dann +/-100, ...
+// Beim Loslassen oder beim Eintritt in den Edit-Modus zurueckgesetzt, das
+// naechste Halten startet wieder langsam.
+// Nuklid- und Einheits-Auswahl machen keine Acceleration (siehe currentDelta()).
+static constexpr uint8_t REPEAT_STEP_TICKS = 10;
+static constexpr int     REPEAT_MAX_MAG    = 1000000;   // Schutz vor int-Ueberlauf
+static uint8_t repeatCount = 0;
+
+static int currentDelta() {
+  // Diskrete Menues (Nuklid, Einheit) bleiben immer auf +/-1, da Acceleration
+  // bei kleinen Zyklen (4-8 Elemente) nichts bringt und das Bedienen verschlechtert.
+  if (menuState == MENU_NUKLID || menuState == MENU_EINHEIT) {
+    return btn_dir;
+  }
+  // Treppen-Acceleration: Schrittweite x10 pro vollendeter REPEAT_STEP_TICKS-Phase.
+  int mag = 1;
+  for (int n = (int)repeatCount;
+       n > REPEAT_STEP_TICKS && mag < REPEAT_MAX_MAG;
+       n -= REPEAT_STEP_TICKS) {
+    mag *= 10;
+  }
+  return btn_dir * mag;
+}
 
 void wertAendern(int delta) {
   switch (menuState) {
@@ -36,6 +61,10 @@ void wertAendern(int delta) {
         (int)cfg.max_dosis_100 + delta * s, 50, 600000);
       break;
     }
+    case MENU_EINHEIT:
+      cfg.unit_idx = (uint8_t)(
+        ((int)cfg.unit_idx + delta + UNIT_COUNT) % UNIT_COUNT);
+      break;
     case MENU_AKTIV:
       cfg.aktiv = !cfg.aktiv;
       break;
@@ -47,8 +76,9 @@ void wertAendern(int delta) {
 }
 
 void printStatus() {
-  Serial.printf("[STATUS] Q%03d | %s | %.2f uSv/h | %s | Menu:%s %s\n",
-    cfg.sender_nr, nuklid_name[cfg.nuklid], cfg.max_dosis_100 / 100.0f,
+  Serial.printf("[STATUS] Q%03d | %s | %u %s | %s | Menu:%s %s\n",
+    cfg.sender_nr, nuklid_name[cfg.nuklid],
+    (unsigned)cfg.max_dosis_100, unit_table[cfg.unit_idx].name,
     cfg.aktiv ? "AN" : "AUS",
     menu_label[menuState], editMode ? "[EDIT]" : "");
 }
@@ -110,9 +140,10 @@ void onBtnLong() {
     return;
   }
   if (editMode) {
-    // Erster Tick der Autorepeat-Session: aktuelle Richtung anwenden
-    DBG_PRINTF(">>>>>>>>>>   dir=%+d\n", btn_dir);
-    wertAendern(btn_dir);
+    // Erster Tick der Autorepeat-Session: zaehlt fuer die Acceleration.
+    repeatCount++;
+    DBG_PRINTF(">>>>>>>>>>   dir=%+d cnt=%u\n", btn_dir, (unsigned)repeatCount);
+    wertAendern(currentDelta());
     printStatus();
     updateDisplay();
     return;
@@ -132,9 +163,10 @@ void onBtnLong() {
       powerOff();      // kehrt nicht zurueck (System OFF)
       break;
     default:
-      // Wertpunkt: Edit-Modus betreten, Richtung frisch starten
-      editMode = true;
-      btn_dir  = +1;
+      // Wertpunkt: Edit-Modus betreten, Richtung + Beschleunigungszaehler frisch starten
+      editMode    = true;
+      btn_dir     = +1;
+      repeatCount = 0;
       break;
   }
   printStatus();
@@ -144,13 +176,15 @@ void onBtnLong() {
 void onBtnRepeat() {
   if (!editMode) return;
   if (isBoolField()) return;     // Bool nicht in Autorepeat
-  wertAendern(btn_dir);
+  repeatCount++;
+  wertAendern(currentDelta());
   updateDisplay();
 }
 
 void onBtnLongRelease() {
   if (!editMode) return;
   if (isBoolField()) return;     // Bool: Richtung egal
-  btn_dir = -btn_dir;
+  btn_dir     = -btn_dir;
+  repeatCount = 0;               // naechste Halten-Session beginnt wieder langsam
   DBG_PRINTF(">>>>>>>>>> BTN long-release, next dir=%+d\n", btn_dir);
 }

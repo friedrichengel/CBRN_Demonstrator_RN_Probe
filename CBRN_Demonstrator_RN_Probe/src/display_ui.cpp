@@ -45,6 +45,10 @@ static void refreshEpd() {
   }
 }
 
+void forceFullRefresh() {
+  partialCount = MAX_PARTIAL_BEFORE_FULL;        // erzwingt Full beim naechsten refreshEpd()
+}
+
 // --------------------------------------------------------------
 // Off-Screen: THW-Logo (Bitmap aus thw_logo.h), darunter "THW OFRK"
 // und "(ausgeschaltet)". E-Paper behaelt das Bild ohne Strom.
@@ -171,7 +175,9 @@ static void drawStatusScreen() {
 
   display.setFont(&FreeSansBold12pt7b);
   display.setCursor(5, 128);
-  display.printf("%.2f uSv/h", cfg.max_dosis_100 / 100.0f);
+  display.printf("%u %s",
+                 (unsigned)cfg.max_dosis_100,
+                 unit_table[cfg.unit_idx].name);
 
   display.drawLine(0, 158, 200, 158, EPD_BLACK);
 

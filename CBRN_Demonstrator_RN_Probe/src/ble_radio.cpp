@@ -9,9 +9,10 @@
 static BLEService        svcCfg   (0x1900);
 static BLECharacteristic chrSender(0x2B00);   // uint8  Sender-Nr (1..254)
 static BLECharacteristic chrNuklid(0x2B01);   // uint8  Nuklid-ID (1..NUKLID_COUNT)
-static BLECharacteristic chrDosis (0x2B02);   // uint16 0.01 µSv/h, Big Endian
+static BLECharacteristic chrDosis (0x2B02);   // uint16 0.01 * Einheit, Big Endian
 static BLECharacteristic chrAktiv (0x2B03);   // uint8  0=aus, 1=an
 static BLECharacteristic chrRange (0x2B04);   // uint8  0=normal, 1=long range
+static BLECharacteristic chrUnit  (0x2B05);   // uint8  Index in unit_table (0..UNIT_COUNT-1)
 
 // Eigenes Advertising-Set - Bluefruit's Wrapper kann primary_phy/secondary_phy
 // nicht setzen, deshalb gehen wir direkt an die SoftDevice-API.
@@ -21,16 +22,20 @@ static size_t  adv_data_len = 0;
 
 // Baut die AD-Struktur (Flags, Manufacturer-Data, Complete Local Name)
 // in adv_data_buf. Layout der Manufacturer-Data siehe README.
+//
+// Protokoll-Version 0x02: 10 Bytes, mit unit_idx an Byte 7 (vorher 0x01: 9 Bytes,
+// ohne Einheit, dose-Interpretation als 0.01 * uSv/h fixed).
 static void buildAdvData() {
-  uint8_t mfg[9];
+  uint8_t mfg[10];
   mfg[0] = 0xFF; mfg[1] = 0xFF;
-  mfg[2] = 0x01;
+  mfg[2] = 0x02;                                  // Protokoll-Version
   mfg[3] = cfg.sender_nr;
   mfg[4] = cfg.nuklid;
-  mfg[5] = (cfg.max_dosis_100 >> 8) & 0xFF;
-  mfg[6] =  cfg.max_dosis_100       & 0xFF;
-  mfg[7] = (uint8_t)(int8_t)TX_POWER;
-  mfg[8] = mfg[2] ^ mfg[3] ^ mfg[4] ^ mfg[5] ^ mfg[6] ^ mfg[7];
+  mfg[5] = (cfg.max_dosis_100 >> 8) & 0xFF;       // Dosis MSB
+  mfg[6] =  cfg.max_dosis_100       & 0xFF;       // Dosis LSB
+  mfg[7] = cfg.unit_idx;                          // Einheits-Index in unit_table
+  mfg[8] = (uint8_t)(int8_t)TX_POWER;
+  mfg[9] = mfg[2] ^ mfg[3] ^ mfg[4] ^ mfg[5] ^ mfg[6] ^ mfg[7] ^ mfg[8];
 
   char name[16];
   snprintf(name, sizeof(name), "Strahler-%03d", cfg.sender_nr);
@@ -102,10 +107,10 @@ void startAdvertising() {
     Serial.printf("[BLE] adv_start err=0x%lx\n", (unsigned long)err);
     return;
   }
-  Serial.printf("[BLE%s] Q%03d | %s | %.2f uSv/h\n",
+  Serial.printf("[BLE%s] Q%03d | %s | %u %s\n",
     cfg.long_range ? "-LR" : "",
     cfg.sender_nr, nuklid_name[cfg.nuklid],
-    cfg.max_dosis_100 / 100.0f);
+    (unsigned)cfg.max_dosis_100, unit_table[cfg.unit_idx].name);
 }
 
 void stopAdvertising() {
@@ -118,32 +123,96 @@ void stopAdvertising() {
 // Aktualisiert cfg, schreibt sie persistent und re-startet Advertising.
 static void onGATTWrite(uint16_t /*hdl*/, BLECharacteristic* chr,
                         uint8_t* data, uint16_t len) {
+  const char* tag = "?";
+  if      (chr == &chrSender) tag = "Sender";
+  else if (chr == &chrNuklid) tag = "Nuklid";
+  else if (chr == &chrDosis ) tag = "Dosis";
+  else if (chr == &chrAktiv ) tag = "Aktiv";
+  else if (chr == &chrRange ) tag = "Range";
+  else if (chr == &chrUnit  ) tag = "Unit";
+  Serial.printf("[BLE-WR] %s len=%u", tag, (unsigned)len);
+  for (uint16_t i = 0; i < len && i < 8; ++i) Serial.printf(" %02X", data[i]);
+  Serial.println();
+
+  bool handled = true;
   if      (chr == &chrSender && len >= 1) cfg.sender_nr     = constrain((int)data[0], 1, 254);
   else if (chr == &chrNuklid && len >= 1) cfg.nuklid        = constrain((int)data[0], 1, (int)NUKLID_COUNT);
-  else if (chr == &chrDosis  && len >= 2) cfg.max_dosis_100 = ((uint16_t)data[0] << 8) | data[1];
+  // chrDosis ist Little Endian (GATT-Konvention, passt zu write16/CPF-uint16).
+  // Mfg-Data dagegen bleibt Big Endian - das ist ein anderes Protokoll fuer Empfaenger.
+  // 1-Byte-Writes werden akzeptiert (LSB), damit nRF Connect's UINT8-Modus
+  // (Werte 0..255) und der UINT16-Modus beide funktionieren.
+  else if (chr == &chrDosis  && len >= 1) {
+    uint16_t v = (uint16_t)data[0];
+    if (len >= 2) v |= ((uint16_t)data[1]) << 8;
+    cfg.max_dosis_100 = v;
+  }
   else if (chr == &chrAktiv  && len >= 1) cfg.aktiv         = data[0] != 0;
   else if (chr == &chrRange  && len >= 1) cfg.long_range    = data[0] != 0;
+  else if (chr == &chrUnit   && len >= 1) cfg.unit_idx      = (uint8_t)constrain((int)data[0], 0, (int)UNIT_COUNT - 1);
+  else { handled = false; Serial.println("[BLE-WR] ignoriert (len zu klein)"); }
 
+  if (!handled) return;
   saveConfig();
-  if (cfg.aktiv) startAdvertising();
-  else           stopAdvertising();
+  // Waehrend einer aktiven Verbindung kein Adv-(Re)Start: der SoftDevice hat
+  // nur einen Peripheral-Slot und liefert sonst NRF_ERROR_INVALID_STATE (0x12).
+  // Nach Disconnect uebernimmt onBleDisconnect() den Neustart mit aktuellem cfg.
+  if (Bluefruit.connected() == 0) {
+    if (cfg.aktiv) startAdvertising();
+    else           stopAdvertising();
+  }
   updateDisplay();
 }
 
+static void onBleConnect(uint16_t conn_hdl) {
+  BLEConnection* c = Bluefruit.Connection(conn_hdl);
+  char peer[20] = "?";
+  if (c) c->getPeerName(peer, sizeof(peer));
+  Serial.printf("[BLE] connected hdl=%u peer=%s\n", conn_hdl, peer);
+}
+
+static void onBleDisconnect(uint16_t conn_hdl, uint8_t reason) {
+  Serial.printf("[BLE] disconnected hdl=%u reason=0x%02X\n", conn_hdl, reason);
+  // Raw-Adv neu starten, wenn aktiv (Bluefruit weiss von unserem Adv-Handle nichts)
+  if (cfg.aktiv) startAdvertising();
+  // Nach (potenziell vielen) Partial-Refreshes waehrend der Session jetzt
+  // einmal voll durchblitzen, um Ghosting auf dem E-Paper zu loeschen.
+  forceFullRefresh();
+  updateDisplay();
+}
+
+// GATT Presentation Format - Typcodes aus BT-SIG-Spec
+// (siehe ble_gatts_char_pf_t.format)
+static constexpr uint8_t GATT_FMT_BOOL  = 0x01;
+static constexpr uint8_t GATT_FMT_UINT8 = 0x04;
+static constexpr uint8_t GATT_FMT_UINT16= 0x06;
+
 static void setupGATT() {
   svcCfg.begin();
-  auto sc = [](BLECharacteristic& c, uint8_t len) {
+  // sc() = standard Setup. fmt/exp/desc liefern die GATT-Hinweise, anhand
+  // derer nRF Connect & Co. den richtigen Eingabetyp anbieten (uint8 / uint16
+  // / boolean) statt nur "Byte Array".
+  auto sc = [](BLECharacteristic& c, uint8_t len, uint8_t fmt, int8_t exp,
+               const char* desc) {
     c.setProperties(CHR_PROPS_READ | CHR_PROPS_WRITE);
     c.setPermission(SECMODE_OPEN, SECMODE_OPEN);
-    c.setFixedLen(len);
+    // setMaxLen statt setFixedLen: variable Laenge erlaubt, damit nRF Connect
+    // & Co. nicht an INVALID_ATTRIBUTE_LENGTH scheitern, wenn z.B. nur 1 Byte
+    // statt der erwarteten 2 geschickt wird. Plausibilitaet macht onGATTWrite.
+    c.setMaxLen(len);
+    c.setUserDescriptor(desc);
+    c.setPresentationFormatDescriptor(fmt, exp, UUID16_UNIT_UNITLESS);
     c.setWriteCallback(onGATTWrite);
     c.begin();
   };
-  sc(chrSender, 1); chrSender.write8 (cfg.sender_nr);
-  sc(chrNuklid, 1); chrNuklid.write8 (cfg.nuklid);
-  sc(chrDosis,  2); chrDosis .write16(cfg.max_dosis_100);
-  sc(chrAktiv,  1); chrAktiv .write8 (cfg.aktiv      ? 1 : 0);
-  sc(chrRange,  1); chrRange .write8 (cfg.long_range ? 1 : 0);
+  sc(chrSender, 1, GATT_FMT_UINT8 , 0 , "Sender-Nr");   chrSender.write8 (cfg.sender_nr);
+  sc(chrNuklid, 1, GATT_FMT_UINT8 , 0 , "Nuklid-ID");   chrNuklid.write8 (cfg.nuklid);
+  // exponent=0 → die Dosis ist eine reine Ganzzahl, nRF Connect zeigt sie 1:1
+  // (z.B. 100 -> "100"). UNIT bleibt unitless, weil die tatsaechliche Einheit
+  // dynamisch ueber chrUnit gewaehlt wird.
+  sc(chrDosis,  2, GATT_FMT_UINT16, 0,  "Max.Dosis");   chrDosis .write16(cfg.max_dosis_100);
+  sc(chrAktiv,  1, GATT_FMT_BOOL  , 0 , "Aktiv");       chrAktiv .write8 (cfg.aktiv      ? 1 : 0);
+  sc(chrRange,  1, GATT_FMT_BOOL  , 0 , "Long Range");  chrRange .write8 (cfg.long_range ? 1 : 0);
+  sc(chrUnit,   1, GATT_FMT_UINT8 , 0 , "Einheit-Idx"); chrUnit  .write8 (cfg.unit_idx);
 }
 
 void bleBegin() {
@@ -153,6 +222,9 @@ void bleBegin() {
   char name[16];
   snprintf(name, sizeof(name), "Strahler-%03d", cfg.sender_nr);
   Bluefruit.setName(name);
+
+  Bluefruit.Periph.setConnectCallback(onBleConnect);
+  Bluefruit.Periph.setDisconnectCallback(onBleDisconnect);
 
   setupGATT();
   if (cfg.aktiv) startAdvertising();

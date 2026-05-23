@@ -10,12 +10,22 @@ const char* nuklid_name[NUKLID_COUNT + 1] = {
   "Ra-226", "Th-232", "U-238", "Pu-239"
 };
 
+// Index 0..UNIT_COUNT-1 - per BLE-Write auf chrUnit oder im Menue zyklisch wechselbar.
+// Exponent ist informativ (relativ zu uSv/h) und wird im Geraet nicht zum
+// Skalieren benutzt - max_dosis_100 wird einfach mit dem Namen angezeigt.
+const UnitEntry unit_table[UNIT_COUNT] = {
+  { "nSv/h", -3 },
+  { "uSv/h",  0 },
+  { "mSv/h", +3 },
+  { "Sv/h" , +6 },
+};
+
 Config cfg;
 
 static LFS::File cfgFile(InternalFS);
-// 0xAC seit Hinzufuegen des long_range-Feldes; alte 0xAB-Configs werden
+// 0xAD seit Hinzufuegen von unit_idx (vorher 0xAC). Aeltere Configs werden
 // beim ersten Boot der neuen Firmware automatisch durch Defaults ersetzt.
-static constexpr uint8_t CFG_MAGIC = 0xAC;
+static constexpr uint8_t CFG_MAGIC = 0xAD;
 static constexpr const char* CFG_PATH = "/strahler.bin";
 
 void loadConfig() {
@@ -23,8 +33,9 @@ void loadConfig() {
   cfgFile.open(CFG_PATH, LFS::FILE_O_READ);
   if (cfgFile) { cfgFile.read(&cfg, sizeof(cfg)); cfgFile.close(); }
   if (cfg.magic != CFG_MAGIC || cfg.sender_nr < 1 || cfg.sender_nr > 254 ||
-      cfg.nuklid < 1 || cfg.nuklid > NUKLID_COUNT || cfg.max_dosis_100 == 0) {
-    cfg = {1, CS_137, 1000, true, false, CFG_MAGIC};
+      cfg.nuklid < 1 || cfg.nuklid > NUKLID_COUNT || cfg.max_dosis_100 == 0 ||
+      cfg.unit_idx >= UNIT_COUNT) {
+    cfg = {1, CS_137, 1000, true, false, /*unit_idx=*/1, CFG_MAGIC};
     Serial.println("[CFG] Defaults");
   } else {
     Serial.println("[CFG] Geladen");

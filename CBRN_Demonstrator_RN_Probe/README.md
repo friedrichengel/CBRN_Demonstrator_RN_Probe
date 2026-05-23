@@ -93,11 +93,12 @@ Mit BTN-kurz weiter, mit TCH-kurz zurück:
 1. **Status** – Hauptbildschirm: Sender-Nr, Aktiv-Flag, Nuklid, max. Dosisleistung
 2. **Sender-Nr** – 1 … 254
 3. **Nuklid** – Cs-137, Co-60, Am-241, Ir-192, Ra-226, Th-232, U-238, Pu-239
-4. **Max. Dosis** – 0,50 … 6000,00 µSv/h (Schrittweite passt sich an)
-5. **Aktiv** – BLE-Advertising an/aus
-6. **Reichweite** – `Normal` (Legacy BLE, 1 Mbps, ~50 m) oder `Lang` (BLE 5 Coded PHY, ~150–200 m)
-7. **Kontakt** – OV-Adresse / Telefon / E-Mail (Vollbild)
-8. **Aus** – Gerät abschalten
+4. **Max. Dosis** – Ganzzahl, 1 … 65535 (Schrittweite passt sich an, mit Acceleration im Hold)
+5. **Einheit** – `nSv/h` / `uSv/h` / `mSv/h` / `Sv/h` (zyklisch). Reine Anzeige-Einheit – der Zahlwert wird *nicht* automatisch umgerechnet beim Wechsel.
+6. **Aktiv** – BLE-Advertising an/aus
+7. **Reichweite** – `Normal` (Legacy BLE, 1 Mbps, ~50 m) oder `Lang` (BLE 5 Coded PHY, ~150–200 m)
+8. **Kontakt** – OV-Adresse / Telefon / E-Mail (Vollbild)
+9. **Aus** – Gerät abschalten
 
 ### Bedienlogik
 
@@ -117,8 +118,8 @@ Mit BTN-kurz weiter, mit TCH-kurz zurück:
 
 | Geste | Was passiert |
 |---|---|
-| Kurz | Wert +1 (Schrittweite je Feld: Sender-Nr ±1, Dosis ±50/±1000/±10000 je nach Bereich, Aktiv/Reichweite Toggle) |
-| Lang (halten) | Autorepeat mit aktueller Richtung. **1. Halten zählt hoch, 2. Halten runter, 3. hoch, …** Loslassen flippt die Richtung für das nächste Halten. Beim Eintritt in den Edit-Modus startet die Richtung auf "hoch". Für Aktiv/Reichweite (Bool) wirkt nur der erste Tick — kein Autorepeat-Flackern. |
+| Kurz | Wert +1 (Schrittweite je Feld: Sender-Nr ±1, Dosis ±50/±1000/±10000 je nach Bereich, Einheit zyklisch, Aktiv/Reichweite Toggle) |
+| Lang (halten) | Autorepeat mit aktueller Richtung. **1. Halten zählt hoch, 2. Halten runter, 3. hoch, …** Loslassen flippt die Richtung für das nächste Halten. Beim Eintritt in den Edit-Modus startet die Richtung auf "hoch". Für Aktiv/Reichweite (Bool) wirkt nur der erste Tick — kein Autorepeat-Flackern. **Beschleunigung (nur Sender-Nr & Max.Dosis):** alle 10 Ticks wächst die Schrittweite um Faktor 10 — Ticks 1–10 ±1, 11–20 ±10, 21–30 ±100, 31–40 ±1000, … Beim Loslassen oder bei jedem neuen Edit-Eintritt wieder bei ±1 starten. Nuklid und Einheit bleiben immer ±1 (zyklische Auswahl, Beschleunigung wäre unsinnig). |
 | Doppel | Speichern, Edit-Modus verlassen, Advertising mit neuen Werten neu starten |
 
 **In Kontakt-Vollansicht:**
@@ -207,29 +208,67 @@ Genügt einem reinen Scanner; **keine GATT-Verbindung nötig**.
 | Byte | Inhalt |
 |---:|---|
 | 0–1 | `0xFF 0xFF` Company ID (custom/Test) |
-| 2 | `0x01` Protokoll-Version |
+| 2 | `0x02` Protokoll-Version |
 | 3 | Sender-Nr (1–254) |
 | 4 | Nuklid-ID (1–8, siehe `config.h`) |
-| 5–6 | max. Dosisleistung in 0,01 µSv/h, Big Endian |
-| 7 | TX-Power in dBm (int8) – derzeit `+4` |
-| 8 | XOR-CRC über Byte 2–7 |
+| 5–6 | max. Dosisleistung als Ganzzahl, Big Endian |
+| 7 | Einheits-Index (0=nSv/h, 1=uSv/h, 2=mSv/h, 3=Sv/h) |
+| 8 | TX-Power in dBm (int8) – derzeit `+4` |
+| 9 | XOR-CRC über Byte 2–8 |
 
 Advertising-Intervall: 100 ms.
 
+Empfänger müssen den Wert in Byte 5–6 zusammen mit dem Einheits-Index in
+Byte 7 interpretieren — z.B. `5-6 = 250, 7 = 2` → 250 mSv/h. Der GATT-Char
+`0x2B05` (siehe unten) liefert denselben Index, ist aber nur nach Connect
+verfügbar; für passive Scanner ist Byte 7 die maßgebliche Quelle.
+
+> **Protokoll-Versions-Bump:** Version 0x01 (Vorgänger-Firmware) hatte 9 Byte
+> ohne Einheits-Byte; die Dosis wurde dort fest als `0.01 × uSv/h` interpretiert.
+> Empfänger sollten Byte 2 prüfen und bei `0x01` das alte Schema, bei `0x02`
+> das neue Schema parsen.
+
 ### GATT-Service (aktiv beschreibbar)
 
-Service-UUID `0x1900` mit fünf R/W-Characteristics ohne Pairing:
+Service-UUID `0x1900` mit sechs R/W-Characteristics ohne Pairing:
 
-| UUID | Typ | Bedeutung |
+| UUID | App-Typ (CPF) | Beschreibung |
 |---|---|---|
-| `0x2B00` | `uint8`  | Sender-Nr (1–254) |
-| `0x2B01` | `uint8`  | Nuklid-ID (1–8) |
-| `0x2B02` | `uint16 BE` | max. Dosisleistung in 0,01 µSv/h |
-| `0x2B03` | `uint8`  | Aktiv (0=aus, 1=an) |
-| `0x2B04` | `uint8`  | Reichweite (0=normal/1 Mbps, 1=lang/Coded PHY) |
+| `0x2B00` | `uint8`  / „Sender-Nr"  | Sender-Nr (1–254) |
+| `0x2B01` | `uint8`  / „Nuklid-ID"  | Nuklid-ID (1–8) |
+| `0x2B02` | `uint16 LE` exp=0 / „Max.Dosis" | max. Dosisleistung – Ganzzahl in *Einheit* (1-Byte-Writes erlaubt für 0…255) |
+| `0x2B03` | `boolean` / „Aktiv"     | 0=aus, 1=an |
+| `0x2B04` | `boolean` / „Long Range" | 0=normal/1 Mbps, 1=lang/Coded PHY |
+| `0x2B05` | `uint8`  / „Einheit-Idx" | Einheit-Index (0=nSv/h, 1=uSv/h, 2=mSv/h, 3=Sv/h) |
 
-Jeder Write persistiert die neue Konfiguration sofort, aktualisiert das
-Display und re-startet das Advertising mit den neuen Werten.
+Jede Charakteristik liefert zusätzlich
+
+- einen **User Description Descriptor** (0x2901) mit dem Klartextnamen oben und
+- einen **Characteristic Presentation Format Descriptor** (0x2904) mit Typ &
+  Exponent.
+
+Dadurch zeigt nRF Connect (Mobile/Desktop) direkt den passenden Eingabetyp
+(UINT8 / UINT16 / Boolean) statt „Byte Array" – die Werte können als normale
+Ganzzahlen eingegeben werden, z.B. bei Max.Dosis einfach `100` und das Display
+zeigt `100 <Einheit>`.
+
+Charakteristika nutzen `setMaxLen`, kürzere Writes werden vom SoftDevice
+akzeptiert und im Callback per Längenprüfung ggf. verworfen – nRF Connect &
+Co. sehen damit keine `INVALID_ATTRIBUTE_LENGTH`-Fehler mehr.
+
+> **Endianness-Detail:** `0x2B02` (Dosis) verwendet im GATT **Little Endian**
+> (GATT-Standard, passt zur uint16-CPF). Die parallel ausgesendete
+> Manufacturer-Data (siehe oben) nutzt dagegen Byte 5–6 **Big Endian** – das ist
+> ein anderes Protokoll für Empfänger-Firmware und bleibt aus Kompatibilitäts-
+> gründen unverändert.
+
+Jeder Write persistiert die neue Konfiguration sofort und aktualisiert das
+Display (Partial-Refresh). Solange eine Verbindung aktiv ist, wird das
+Advertising **nicht** neu konfiguriert (der SoftDevice hat nur einen
+Peripheral-Slot und würde sonst `NRF_ERROR_INVALID_STATE` werfen) – nach
+dem Disconnect läuft das Advertising automatisch mit den neuen Werten weiter.
+Beim Disconnect wird zusätzlich **einmal voll geflashed**, um Ghosting durch
+viele Partials während der Session zu löschen.
 
 ---
 
@@ -283,10 +322,11 @@ Bootloader nimmt die neue Firmware an.
   klassische E-Paper-Invertieren (schwarz/weiß flackert ~3 s lang).
   `display_ui.cpp` nutzt deshalb `displayPartial()` für routine
   Aktualisierungen (Status, Kontakt). Ein Full-Refresh zum Aufräumen
-  von Ghosting wird ausgelöst durch zwei unabhängige Trigger — was
+  von Ghosting wird ausgelöst durch drei unabhängige Trigger — was
   zuerst eintritt:
   - **10 Partials** seit dem letzten Full (interaktionsbasiert) oder
-  - **5 min** seit dem letzten Full (zeitbasiert, für Standby).
+  - **5 min** seit dem letzten Full (zeitbasiert, für Standby) oder
+  - **BLE-Disconnect** (über `forceFullRefresh()` aus `onBleDisconnect`).
 
   Beide Zähler werden bei jedem Full zurückgesetzt. Beim Abschalten
   (`drawOffScreen`) wird immer Full gemacht, damit das Logo sauber
