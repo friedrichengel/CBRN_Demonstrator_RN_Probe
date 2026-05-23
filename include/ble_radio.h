@@ -3,7 +3,7 @@
 
 // Sendepower in dBm. Wird auch im Advertisement mitgeschickt,
 // damit Empfaenger die Entfernung schaetzen koennen.
-constexpr int8_t TX_POWER = 4;
+constexpr int8_t TX_POWER = 8;
 
 // Bluefruit-Stack starten, GATT-Service registrieren, optional Advertising starten.
 void bleBegin();

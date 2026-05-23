@@ -227,6 +227,15 @@ static void setupGATT() {
 }
 
 void bleBegin() {
+  // Coded PHY (125 kbps) braucht ~8x laenger pro Paket als 1 Mbps. Damit der
+  // SoftDevice einen Connection-Roundtrip auf der ausgewaehlten Adv-PHY ueberhaupt
+  // einplanen kann, muss event_length groesser sein als der Bluefruit-Default
+  // (BLE_GAP_EVENT_LENGTH_DEFAULT = 3 Units = 3.75 ms). Sonst lehnt
+  // sd_ble_gap_adv_start im LR-Modus mit NRF_ERROR_RESOURCES (0x13) ab.
+  // 7 Units = 8.75 ms reichen fuer Coded PHY S=8 mit Margin.
+  Bluefruit.configPrphConn(BLE_GATT_ATT_MTU_DEFAULT, /*event_len=*/7,
+                           BLE_GATTS_HVN_TX_QUEUE_SIZE_DEFAULT,
+                           BLE_GATTC_WRITE_CMD_TX_QUEUE_SIZE_DEFAULT);
   Bluefruit.begin();
   Bluefruit.setTxPower(TX_POWER);
 
