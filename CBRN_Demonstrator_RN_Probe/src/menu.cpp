@@ -54,13 +54,13 @@ void wertAendern(int delta) {
       cfg.nuklid = (uint8_t)(
         ((int)(cfg.nuklid - 1) + delta + NUKLID_COUNT) % NUKLID_COUNT + 1);
       break;
-    case MENU_DOSIS: {
-      int s = (cfg.max_dosis_100 < 10000)  ? 50    :
-              (cfg.max_dosis_100 < 100000) ? 1000  : 10000;
+    case MENU_DOSIS:
+      // Reines +/-delta ohne wertabhaengige Skalierung. Die Stufung
+      // (1 -> 10 -> 100 -> ...) macht die Autorepeat-Acceleration in
+      // currentDelta(). Range = ganzer uint16-Bereich.
       cfg.max_dosis_100 = (uint16_t)constrain(
-        (int)cfg.max_dosis_100 + delta * s, 50, 600000);
+        (int)cfg.max_dosis_100 + delta, 0, 65535);
       break;
-    }
     case MENU_EINHEIT:
       cfg.unit_idx = (uint8_t)(
         ((int)cfg.unit_idx + delta + UNIT_COUNT) % UNIT_COUNT);
@@ -73,6 +73,9 @@ void wertAendern(int delta) {
       break;
     default: break;
   }
+  // Live-Sync der GATT-Attribute, damit ein evtl. verbundener Client beim
+  // naechsten Read den aktuellen Wert sieht statt seinen letzten Write.
+  bleSyncChars();
 }
 
 void printStatus() {
@@ -153,6 +156,7 @@ void onBtnLong() {
     case MENU_STATUS:
       cfg.aktiv = !cfg.aktiv;
       saveConfig();
+      bleSyncChars();
       if (cfg.aktiv) startAdvertising();
       else           stopAdvertising();
       break;

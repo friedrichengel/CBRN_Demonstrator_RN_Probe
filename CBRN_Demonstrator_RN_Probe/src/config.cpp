@@ -32,10 +32,12 @@ void loadConfig() {
   InternalFS.begin();
   cfgFile.open(CFG_PATH, LFS::FILE_O_READ);
   if (cfgFile) { cfgFile.read(&cfg, sizeof(cfg)); cfgFile.close(); }
+  // max_dosis_100 == 0 ist KEIN Invaliditaets-Indikator mehr - 0 ist ein
+  // gueltiger Anzeigewert (z.B. "0 uSv/h" fuer Hintergrundstrahlung-Demo).
   if (cfg.magic != CFG_MAGIC || cfg.sender_nr < 1 || cfg.sender_nr > 254 ||
-      cfg.nuklid < 1 || cfg.nuklid > NUKLID_COUNT || cfg.max_dosis_100 == 0 ||
+      cfg.nuklid < 1 || cfg.nuklid > NUKLID_COUNT ||
       cfg.unit_idx >= UNIT_COUNT) {
-    cfg = {1, CS_137, 1000, true, false, /*unit_idx=*/1, CFG_MAGIC};
+    cfg = {1, CS_137, 10, true, false, /*unit_idx=*/1, CFG_MAGIC};
     Serial.println("[CFG] Defaults");
   } else {
     Serial.println("[CFG] Geladen");

@@ -119,6 +119,17 @@ void stopAdvertising() {
   }
 }
 
+void bleSyncChars() {
+  // Schreibt die aktuellen cfg-Werte in die SoftDevice-Attribut-Tabelle.
+  // Reine RAM-Operation, billig - kann pro Menue-Tick aufgerufen werden.
+  chrSender.write8 (cfg.sender_nr);
+  chrNuklid.write8 (cfg.nuklid);
+  chrDosis .write16(cfg.max_dosis_100);
+  chrAktiv .write8 (cfg.aktiv      ? 1 : 0);
+  chrRange .write8 (cfg.long_range ? 1 : 0);
+  chrUnit  .write8 (cfg.unit_idx);
+}
+
 // Wird vom Bluefruit-Stack bei jedem GATT-Write aufgerufen.
 // Aktualisiert cfg, schreibt sie persistent und re-startet Advertising.
 static void onGATTWrite(uint16_t /*hdl*/, BLECharacteristic* chr,

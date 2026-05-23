@@ -16,3 +16,8 @@ void startAdvertising();
 
 // Advertising stoppen.
 void stopAdvertising();
+
+// Schreibt die aktuellen cfg-Werte zurueck in die GATT-Charakteristika, damit
+// GATT-Reads den am Geraet (via Taster) eingestellten Wert sehen und nicht
+// nur den zuletzt per BLE geschriebenen. Aufzurufen nach jeder Menue-aenderung.
+void bleSyncChars();

@@ -93,7 +93,7 @@ Mit BTN-kurz weiter, mit TCH-kurz zurück:
 1. **Status** – Hauptbildschirm: Sender-Nr, Aktiv-Flag, Nuklid, max. Dosisleistung
 2. **Sender-Nr** – 1 … 254
 3. **Nuklid** – Cs-137, Co-60, Am-241, Ir-192, Ra-226, Th-232, U-238, Pu-239
-4. **Max. Dosis** – Ganzzahl, 1 … 65535 (Schrittweite passt sich an, mit Acceleration im Hold)
+4. **Max. Dosis** – Ganzzahl, 0 … 65535. Grundschritt immer ±1; im Hold beschleunigt die Schrittweite stufenweise auf ±10, ±100, ±1000 …
 5. **Einheit** – `nSv/h` / `uSv/h` / `mSv/h` / `Sv/h` (zyklisch). Reine Anzeige-Einheit – der Zahlwert wird *nicht* automatisch umgerechnet beim Wechsel.
 6. **Aktiv** – BLE-Advertising an/aus
 7. **Reichweite** – `Normal` (Legacy BLE, 1 Mbps, ~50 m) oder `Lang` (BLE 5 Coded PHY, ~150–200 m)
@@ -118,8 +118,8 @@ Mit BTN-kurz weiter, mit TCH-kurz zurück:
 
 | Geste | Was passiert |
 |---|---|
-| Kurz | Wert +1 (Schrittweite je Feld: Sender-Nr ±1, Dosis ±50/±1000/±10000 je nach Bereich, Einheit zyklisch, Aktiv/Reichweite Toggle) |
-| Lang (halten) | Autorepeat mit aktueller Richtung. **1. Halten zählt hoch, 2. Halten runter, 3. hoch, …** Loslassen flippt die Richtung für das nächste Halten. Beim Eintritt in den Edit-Modus startet die Richtung auf "hoch". Für Aktiv/Reichweite (Bool) wirkt nur der erste Tick — kein Autorepeat-Flackern. **Beschleunigung (nur Sender-Nr & Max.Dosis):** alle 10 Ticks wächst die Schrittweite um Faktor 10 — Ticks 1–10 ±1, 11–20 ±10, 21–30 ±100, 31–40 ±1000, … Beim Loslassen oder bei jedem neuen Edit-Eintritt wieder bei ±1 starten. Nuklid und Einheit bleiben immer ±1 (zyklische Auswahl, Beschleunigung wäre unsinnig). |
+| Kurz | Wert ±1 (Einheit zyklisch, Aktiv/Reichweite Toggle) |
+| Lang (halten) | Autorepeat mit aktueller Richtung. **1. Halten zählt hoch, 2. Halten runter, 3. hoch, …** Loslassen flippt die Richtung für das nächste Halten. Beim Eintritt in den Edit-Modus startet die Richtung auf "hoch". Für Aktiv/Reichweite (Bool) wirkt nur der erste Tick — kein Autorepeat-Flackern. **Beschleunigung (nur Sender-Nr & Max.Dosis):** alle 10 Ticks wächst die Schrittweite um Faktor 10, **unabhängig vom aktuellen Wert** — Ticks 1–10 ±1, 11–20 ±10, 21–30 ±100, 31–40 ±1000, … Beim Loslassen oder bei jedem neuen Edit-Eintritt wieder bei ±1. So kommt man im Bereich 0–10 in 1er-Schritten exakt hin und kann notfalls per Richtungsflip einzeln zurückgehen. Nuklid und Einheit bleiben immer ±1 (zyklische Auswahl, Beschleunigung wäre unsinnig). |
 | Doppel | Speichern, Edit-Modus verlassen, Advertising mit neuen Werten neu starten |
 
 **In Kontakt-Vollansicht:**
