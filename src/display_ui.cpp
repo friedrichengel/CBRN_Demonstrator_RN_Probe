@@ -167,7 +167,7 @@ static void drawStatusScreen() {
 
   display.setFont(&FreeSansBold12pt7b);
   display.setCursor(5, 68);
-  display.print(nuklid_name[cfg.nuklid]);
+  display.print(nuklidName(cfg.nuklid));
 
   display.setFont(&FreeSans9pt7b);
   display.setCursor(5, 95);

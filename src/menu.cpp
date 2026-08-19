@@ -50,10 +50,15 @@ void wertAendern(int delta) {
     case MENU_SENDER_NR:
       cfg.sender_nr = (uint8_t)constrain((int)cfg.sender_nr + delta, 1, 254);
       break;
-    case MENU_NUKLID:
-      cfg.nuklid = (uint8_t)(
-        ((int)(cfg.nuklid - 1) + delta + NUKLID_COUNT) % NUKLID_COUNT + 1);
+    case MENU_NUKLID: {
+      // Zyklisch ueber die Tabellen-Position, nicht ueber die ID - die IDs
+      // sind nicht lueckenlos (1..8, dann 99 fuer Se-75).
+      int idx = nuklidIndex(cfg.nuklid);
+      if (idx < 0) idx = 0;
+      idx = (idx + delta % NUKLID_COUNT + NUKLID_COUNT) % NUKLID_COUNT;
+      cfg.nuklid = nuklid_table[idx].id;
       break;
+    }
     case MENU_DOSIS:
       // Reines +/-delta ohne wertabhaengige Skalierung. Die Stufung
       // (1 -> 10 -> 100 -> ...) macht die Autorepeat-Acceleration in
@@ -80,7 +85,7 @@ void wertAendern(int delta) {
 
 void printStatus() {
   Serial.printf("[STATUS] Q%03d | %s | %u %s | %s | Menu:%s %s\n",
-    cfg.sender_nr, nuklid_name[cfg.nuklid],
+    cfg.sender_nr, nuklidName(cfg.nuklid),
     (unsigned)cfg.max_dosis_100, unit_table[cfg.unit_idx].name,
     cfg.aktiv ? "AN" : "AUS",
     menu_label[menuState], editMode ? "[EDIT]" : "");

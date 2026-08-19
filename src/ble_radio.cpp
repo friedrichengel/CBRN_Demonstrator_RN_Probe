@@ -8,7 +8,7 @@
 // mit vier R/W-Charakteristika fuer die Felder aus `cfg`.
 static BLEService        svcCfg   (0x1900);
 static BLECharacteristic chrSender(0x2B00);   // uint8  Sender-Nr (1..254)
-static BLECharacteristic chrNuklid(0x2B01);   // uint8  Nuklid-ID (1..NUKLID_COUNT)
+static BLECharacteristic chrNuklid(0x2B01);   // uint8  Nuklid-ID (gueltige ID aus nuklid_table)
 static BLECharacteristic chrDosis (0x2B02);   // uint16 0.01 * Einheit, Big Endian
 static BLECharacteristic chrAktiv (0x2B03);   // uint8  0=aus, 1=an
 static BLECharacteristic chrRange (0x2B04);   // uint8  0=normal, 1=long range
@@ -109,7 +109,7 @@ void startAdvertising() {
   }
   Serial.printf("[BLE%s] Q%03d | %s | %u %s\n",
     cfg.long_range ? "-LR" : "",
-    cfg.sender_nr, nuklid_name[cfg.nuklid],
+    cfg.sender_nr, nuklidName(cfg.nuklid),
     (unsigned)cfg.max_dosis_100, unit_table[cfg.unit_idx].name);
 }
 
@@ -147,7 +147,13 @@ static void onGATTWrite(uint16_t /*hdl*/, BLECharacteristic* chr,
 
   bool handled = true;
   if      (chr == &chrSender && len >= 1) cfg.sender_nr     = constrain((int)data[0], 1, 254);
-  else if (chr == &chrNuklid && len >= 1) cfg.nuklid        = constrain((int)data[0], 1, (int)NUKLID_COUNT);
+  // Nuklid-IDs sind nicht lueckenlos (1..8, dann 99) - unbekannte IDs werden
+  // verworfen und der Char auf den gueltigen Bestandswert zurueckgeschrieben.
+  else if (chr == &chrNuklid && len >= 1) {
+    if (nuklidIndex(data[0]) >= 0) cfg.nuklid = data[0];
+    else Serial.printf("[BLE-WR] unbekannte Nuklid-ID %u verworfen\n", (unsigned)data[0]);
+    chrNuklid.write8(cfg.nuklid);
+  }
   // chrDosis ist Little Endian (GATT-Konvention, passt zu write16/CPF-uint16).
   // Mfg-Data dagegen bleibt Big Endian - das ist ein anderes Protokoll fuer Empfaenger.
   // 1-Byte-Writes werden akzeptiert (LSB), damit nRF Connect's UINT8-Modus

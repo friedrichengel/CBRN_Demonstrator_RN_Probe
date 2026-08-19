@@ -2,13 +2,19 @@
 #include <Arduino.h>
 
 // Nuklid-Liste fuer das Trainingsgeraet.
-// 0 = ungueltig/leer, 1..8 sind die im UI/BLE verwendeten IDs.
+// Die ID ist der Wert im Funkprotokoll (Mfg-Data Byte 4) und im GATT (0x2B01).
+// IDs muessen nicht lueckenlos sein: 1..8 sind historisch vergeben,
+// Se-75 hat per Empfaenger-Konvention die ID 99.
 enum Nuklid : uint8_t {
   CS_137 = 1, CO_60 = 2, AM_241 = 3, IR_192 = 4,
-  RA_226 = 5, TH_232 = 6, U_238  = 7, PU_239 = 8
+  RA_226 = 5, TH_232 = 6, U_238  = 7, PU_239 = 8,
+  SE_75  = 99
 };
-constexpr uint8_t NUKLID_COUNT = 8;
-extern const char* nuklid_name[NUKLID_COUNT + 1];
+constexpr uint8_t NUKLID_COUNT = 9;
+struct NuklidEntry { uint8_t id; const char* name; };
+extern const NuklidEntry nuklid_table[NUKLID_COUNT];
+int         nuklidIndex(uint8_t id);   // Index in nuklid_table, -1 wenn ID unbekannt
+const char* nuklidName (uint8_t id);   // Klartextname, "?" wenn ID unbekannt
 
 // Einheiten-Tabelle fuer die angezeigte Dosisleistung.
 // Index = unit_idx in Config (per BLE 0..UNIT_COUNT-1 schreibbar).
@@ -22,7 +28,7 @@ extern const UnitEntry unit_table[UNIT_COUNT];
 // und beim Boot via loadConfig() in den globalen `cfg` geladen.
 struct Config {
   uint8_t  sender_nr;       // 1..254 - Strahler-Identifikation
-  uint8_t  nuklid;          // 1..NUKLID_COUNT
+  uint8_t  nuklid;          // gueltige ID aus nuklid_table (1..8 oder 99)
   uint16_t max_dosis_100;   // Anzeigewert (Ganzzahl) in <Einheit aus unit_idx>.
                             // Name historisch - frueher 0.01 * uSv/h. Heute reine Ganzzahl,
                             // direkt so wie auf dem Display und in nRF Connect zu sehen.

@@ -5,10 +5,22 @@
 // daher Namespace-Alias.
 namespace LFS = Adafruit_LittleFS_Namespace;
 
-const char* nuklid_name[NUKLID_COUNT + 1] = {
-  "", "Cs-137", "Co-60", "Am-241", "Ir-192",
-  "Ra-226", "Th-232", "U-238", "Pu-239"
+const NuklidEntry nuklid_table[NUKLID_COUNT] = {
+  { CS_137, "Cs-137" }, { CO_60,  "Co-60"  }, { AM_241, "Am-241" },
+  { IR_192, "Ir-192" }, { RA_226, "Ra-226" }, { TH_232, "Th-232" },
+  { U_238,  "U-238"  }, { PU_239, "Pu-239" }, { SE_75,  "Se-75"  },
 };
+
+int nuklidIndex(uint8_t id) {
+  for (uint8_t i = 0; i < NUKLID_COUNT; ++i)
+    if (nuklid_table[i].id == id) return i;
+  return -1;
+}
+
+const char* nuklidName(uint8_t id) {
+  int i = nuklidIndex(id);
+  return i >= 0 ? nuklid_table[i].name : "?";
+}
 
 // Index 0..UNIT_COUNT-1 - per BLE-Write auf chrUnit oder im Menue zyklisch wechselbar.
 // Exponent ist informativ (relativ zu uSv/h) und wird im Geraet nicht zum
@@ -35,7 +47,7 @@ void loadConfig() {
   // max_dosis_100 == 0 ist KEIN Invaliditaets-Indikator mehr - 0 ist ein
   // gueltiger Anzeigewert (z.B. "0 uSv/h" fuer Hintergrundstrahlung-Demo).
   if (cfg.magic != CFG_MAGIC || cfg.sender_nr < 1 || cfg.sender_nr > 254 ||
-      cfg.nuklid < 1 || cfg.nuklid > NUKLID_COUNT ||
+      nuklidIndex(cfg.nuklid) < 0 ||
       cfg.unit_idx >= UNIT_COUNT) {
     cfg = {1, CS_137, 10, true, false, /*unit_idx=*/1, CFG_MAGIC};
     Serial.println("[CFG] Defaults");
