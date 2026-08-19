@@ -44,6 +44,10 @@ void loadConfig() {
   InternalFS.begin();
   cfgFile.open(CFG_PATH, LFS::FILE_O_READ);
   if (cfgFile) { cfgFile.read(&cfg, sizeof(cfg)); cfgFile.close(); }
+  // Migration: Se-75 hatte frueher die ID 99, seit die Sonde den Wert als
+  // Array-Index interpretiert gilt die 9. Alte Configs umschreiben statt
+  // sie komplett auf Defaults zurueckzusetzen.
+  if (cfg.nuklid == 99) cfg.nuklid = SE_75;
   // max_dosis_100 == 0 ist KEIN Invaliditaets-Indikator mehr - 0 ist ein
   // gueltiger Anzeigewert (z.B. "0 uSv/h" fuer Hintergrundstrahlung-Demo).
   if (cfg.magic != CFG_MAGIC || cfg.sender_nr < 1 || cfg.sender_nr > 254 ||

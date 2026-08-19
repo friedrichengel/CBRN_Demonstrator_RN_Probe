@@ -210,7 +210,7 @@ Genügt einem reinen Scanner; **keine GATT-Verbindung nötig**.
 | 0–1 | `0xFF 0xFF` Company ID (custom/Test) |
 | 2 | `0x02` Protokoll-Version |
 | 3 | Sender-Nr (1–254) |
-| 4 | Nuklid-ID (1–8 oder 99 = Se-75, siehe `config.h`) |
+| 4 | Nuklid-ID (1–9, 9 = Se-75, siehe `config.h`) |
 | 5–6 | max. Dosisleistung als Ganzzahl, Big Endian |
 | 7 | Einheits-Index (0=nSv/h, 1=uSv/h, 2=mSv/h, 3=Sv/h) |
 | 8 | TX-Power in dBm (int8) – derzeit `+4` |
@@ -235,7 +235,7 @@ Service-UUID `0x1900` mit sechs R/W-Characteristics ohne Pairing:
 | UUID | App-Typ (CPF) | Beschreibung |
 |---|---|---|
 | `0x2B00` | `uint8`  / „Sender-Nr"  | Sender-Nr (1–254) |
-| `0x2B01` | `uint8`  / „Nuklid-ID"  | Nuklid-ID (1–8 oder 99 = Se-75); unbekannte IDs werden verworfen |
+| `0x2B01` | `uint8`  / „Nuklid-ID"  | Nuklid-ID (1–9, 9 = Se-75); unbekannte IDs werden verworfen |
 | `0x2B02` | `uint16 LE` exp=0 / „Max.Dosis" | max. Dosisleistung – Ganzzahl in *Einheit* (1-Byte-Writes erlaubt für 0…255) |
 | `0x2B03` | `boolean` / „Aktiv"     | 0=aus, 1=an |
 | `0x2B04` | `boolean` / „Long Range" | 0=normal/1 Mbps, 1=lang/Coded PHY |

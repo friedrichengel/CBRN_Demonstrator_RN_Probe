@@ -147,8 +147,8 @@ static void onGATTWrite(uint16_t /*hdl*/, BLECharacteristic* chr,
 
   bool handled = true;
   if      (chr == &chrSender && len >= 1) cfg.sender_nr     = constrain((int)data[0], 1, 254);
-  // Nuklid-IDs sind nicht lueckenlos (1..8, dann 99) - unbekannte IDs werden
-  // verworfen und der Char auf den gueltigen Bestandswert zurueckgeschrieben.
+  // Unbekannte Nuklid-IDs werden verworfen und der Char auf den gueltigen
+  // Bestandswert zurueckgeschrieben.
   else if (chr == &chrNuklid && len >= 1) {
     if (nuklidIndex(data[0]) >= 0) cfg.nuklid = data[0];
     else Serial.printf("[BLE-WR] unbekannte Nuklid-ID %u verworfen\n", (unsigned)data[0]);

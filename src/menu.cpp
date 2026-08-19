@@ -51,8 +51,7 @@ void wertAendern(int delta) {
       cfg.sender_nr = (uint8_t)constrain((int)cfg.sender_nr + delta, 1, 254);
       break;
     case MENU_NUKLID: {
-      // Zyklisch ueber die Tabellen-Position, nicht ueber die ID - die IDs
-      // sind nicht lueckenlos (1..8, dann 99 fuer Se-75).
+      // Zyklisch ueber die Tabellen-Position (IDs 1..9, Index = ID - 1).
       int idx = nuklidIndex(cfg.nuklid);
       if (idx < 0) idx = 0;
       idx = (idx + delta % NUKLID_COUNT + NUKLID_COUNT) % NUKLID_COUNT;
