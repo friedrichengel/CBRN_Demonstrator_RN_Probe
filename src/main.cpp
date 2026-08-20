@@ -22,7 +22,7 @@
 // (Major.Minor, Minor zweistellig). Beide Werte hier editieren.
 // =============================================================
 constexpr uint8_t VERSION_MAJOR = 1;
-constexpr uint8_t VERSION_MINOR = 2;
+constexpr uint8_t VERSION_MINOR = 3;
 
 // Globaler Versions-String, von display_ui.cpp via extern verwendet.
 const char* firmwareVersion() {

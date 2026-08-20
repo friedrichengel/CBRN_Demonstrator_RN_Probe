@@ -7,3 +7,4 @@
 # Logo-Generator: lokales Python-Env + gecachtes SVG
 tools/.venv/
 tools/_thw.svg
+tools/__pycache__/

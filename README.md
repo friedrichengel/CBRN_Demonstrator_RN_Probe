@@ -297,11 +297,51 @@ Die `platformio.ini` setzt zusätzlich:
 - `-DUSE_TINYUSB` und `-DCONFIG_NFCT_PINS_AS_GPIOS` – Standard-Flags
   für T-Echo
 
-### Aufwachen aus Off-Zustand
+### Wie der Upload abläuft
 
-Das Flashen aus dem Off-Zustand funktioniert direkt: USB anstecken,
-`pio run -t upload` – nrfutil löst den DFU-Modus über UART aus und der
-Bootloader nimmt die neue Firmware an.
+`pio run -t upload` ruft nicht direkt `adafruit-nrfutil` auf, sondern
+[`tools/dfu_upload.py`](tools/dfu_upload.py) (eingehängt als `upload_command`
+in `platformio.ini`). Der Grund: mit den PlatformIO-Standardeinstellungen
+schlägt der Upload auf diesem Board zuverlässig fehl. Im Detail steht das im
+Kopf des Skripts, kurz:
+
+- Das Board-Profil `nrf52840_dk_adafruit` setzt kein `use_1200bps_touch`, also
+  redet nrfutil mit der App-CDC statt mit dem Bootloader („No data received on
+  serial port"). PlatformIOs `wait_for_upload_port` hilft nicht, weil macOS
+  App (PID `0x8029`) und Bootloader (`0x0029`/`0x002A`) denselben Portnamen
+  gibt – es wartet auf einen *neuen* Portnamen, der nie kommt.
+- Der Bootloader nimmt serielles DFU **nur in einem kurzen Fenster direkt nach
+  seinem Start** an. Danach bleibt der CDC-Port sichtbar, antwortet aber nicht
+  mehr, und eine abgebrochene Sitzung lässt sich nicht fortsetzen.
+- nrfutil wartet nur 1 s aufs ACK, sendet danach mit zurückgesetzter
+  Sequenznummer weiter (was den Bootloader abwürgt) und liefert bei Fehlern
+  trotzdem Exit-Code 0 – PlatformIO meldet dann `[SUCCESS]`, obwohl nichts
+  geflasht wurde.
+
+Der normale Ablauf braucht deshalb keinen Tastendruck: Das Skript versetzt die
+laufende App per 1200-bps-Touch in den DFU-Modus und flasht sofort los. Ein
+Durchlauf dauert ~15 s und endet mit „Board laeuft mit der neuen Firmware."
+
+### Wenn der Upload abbricht
+
+Das Board verliert während des DFU sporadisch die USB-Verbindung (`Device not
+configured` bzw. ACK bleibt an zufälliger Stelle aus). Dann ist die
+DFU-Sitzung verloren **und die App ist bereits gelöscht** (Single-Bank-DFU
+löscht vor dem Schreiben) – das Board hängt also im Bootloader und kann sich
+nicht mehr selbst in DFU versetzen.
+
+In diesem Fall fordert das Skript einen Tasterdruck an und wartet:
+
+```
+>>> Bitte jetzt den Reset-Taster antippen (oder USB kurz abziehen und wieder
+    anstecken). <<<
+```
+
+Reset drücken – das Skript erkennt den Bootloader-Start und flasht in dem
+Moment weiter, in dem das Fenster offen ist. Per Hand ist das nicht zu
+treffen, deshalb macht das Skript es selbst. Häuft sich der Abbruch, liegt es
+an der Verbindung: anderes USB-C-Kabel, direkt am Rechner statt über Hub oder
+Dock, Akku geladen.
 
 ---
 
