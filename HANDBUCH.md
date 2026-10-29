@@ -1,7 +1,14 @@
 # Handbuch — CBRN-RN Strahler
 
-**Trainings-Pseudostrahler für den CBRN-RN-Demonstrator**
-THW OV Berlin Friedrichshain-Kreuzberg · Firmware 1.02
+**Trainings-Pseudostrahler für den CBRN-RN-Demonstrator** · Firmware 1.02
+Privates Projekt, eingesetzt in der Ausbildung im THW OV Berlin
+Friedrichshain-Kreuzberg
+
+> **Hinweis:** Dies ist ein **privates Projekt** und **kein offizielles
+> Produkt oder Ausbildungsmittel des THW**. Das Gerät misst keine Strahlung
+> und erzeugt keine; es ist ein Ausbildungsmittel, kein Dosimeter und keine
+> Prüfstrahlenquelle. Quellcode und Lizenz (MIT):
+> <https://github.com/friedrichengel/CBRN_Demonstrator_RN_Probe>
 
 ---
 
@@ -394,4 +401,4 @@ zurück: **Q001, Cs-137, 10 µSv/h, Aktiv = an, Reichweite = Normal.**
 
 ---
 
-*Handbuch zur Firmware 1.02 · THW OV Berlin Friedrichshain-Kreuzberg*
+*Handbuch zur Firmware 1.02 · privates Projekt, kein offizielles THW-Produkt · MIT-Lizenz · <https://github.com/friedrichengel/CBRN_Demonstrator_RN_Probe>*

@@ -1,14 +1,43 @@
 # CBRN-RN Demonstrator – Strahler-Firmware
 
-Trainingsfirmware für das **THW OV Berlin Friedrichshain-Kreuzberg**.
+[![PlatformIO Build](https://github.com/friedrichengel/CBRN_Demonstrator_RN_Probe/actions/workflows/build.yml/badge.svg)](https://github.com/friedrichengel/CBRN_Demonstrator_RN_Probe/actions/workflows/build.yml)
+[![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-blue.svg)](LICENSE)
+[![Plattform: nRF52840](https://img.shields.io/badge/Plattform-nRF52840%20%2F%20LilyGo%20T--Echo-lightgrey.svg)](https://www.lilygo.cc/products/t-echo)
+
+> **Haftungsausschluss / Einordnung**
+>
+> - Dies ist ein **privates Hobby-Projekt** und **kein offizielles Produkt oder
+>   Ausbildungsmittel des THW** (Bundesanstalt Technisches Hilfswerk) oder eines
+>   Ortsverbands. Es wird lediglich im Rahmen der Ausbildung verwendet.
+>   „THW" ist ein Kennzeichen der Bundesanstalt Technisches Hilfswerk; dieses
+>   Projekt steht in keiner offiziellen Verbindung dazu.
+> - Das Gerät **misst keine Strahlung und erzeugt keine**. Es sendet lediglich
+>   ein Bluetooth-Datenpaket, das die zugehörige Sonde bzw. App als simulierten
+>   Messwert interpretiert. Es ist ein **Ausbildungsmittel, kein Dosimeter und
+>   keine Prüfstrahlenquelle** und darf niemals für reale Messungen,
+>   Kalibrierungen oder Lagebeurteilungen verwendet werden.
+> - Die Software wird **ohne jede Gewährleistung** bereitgestellt (siehe
+>   [LICENSE](LICENSE)).
+
+Trainingsfirmware für die Ausbildung von CBRN-Erkundern, eingesetzt im
+THW OV Berlin Friedrichshain-Kreuzberg.
 Sie verwandelt einen handelsüblichen **LilyGo T-Echo** (nRF52840 + 1,54″
-E-Paper) in einen Funk-Pseudostrahler für die Ausbildung von
-CBRN-Erkundern: Das Gerät sendet per BLE-Advertising eine "Dosisleistung"
-samt Nuklid und Sender-Nummer, die mit einem zugehörigen
-Empfänger-/Probe-Gerät detektiert werden kann.
+E-Paper) in einen Funk-Pseudostrahler: Das Gerät sendet per BLE-Advertising
+eine "Dosisleistung" samt Nuklid und Sender-Nummer, die mit der zugehörigen
+Sonde oder der Android-App detektiert werden kann.
 
 Es wird **keine echte Strahlung erzeugt**. Das Manufacturer-Data des
 BLE-Advertisements ersetzt das Detektorsignal.
+
+## Zugehörige Projekte
+
+| Repository | Inhalt |
+|---|---|
+| CBRN_Demonstrator_RN_Probe (dieses Repo) | Firmware der **Strahler** (Trainings-Quellen, BLE-Peripheral mit GATT-Dienst `0x1900`) |
+| [CBRN_Demonstrator_RN_Sonde](https://github.com/friedrichengel/CBRN_Demonstrator_RN_Sonde) | Firmware der **Sonde** (Messgerät-Nachbildung, RSSI-basiertes Dosis-Modell) |
+| [CBRN_Demonstrator_RN_App](https://github.com/friedrichengel/CBRN_Demonstrator_RN_App) | Android-App: Messen wie die Sonde + Konfigurieren der Strahler über GATT |
+
+Bedienungsanleitung für Ausbilder: [HANDBUCH.md](HANDBUCH.md) (PDF: [HANDBUCH.pdf](HANDBUCH.pdf)).
 
 ---
 
@@ -272,6 +301,29 @@ viele Partials während der Session zu löschen.
 
 ---
 
+## Voraussetzungen / Toolchain
+
+- **PlatformIO Core** (CLI, `pip install platformio`) oder die
+  PlatformIO-Erweiterung für VS Code (siehe `.vscode/extensions.json`)
+- **Python 3.9+** (PlatformIO selbst und `tools/dfu_upload.py` laufen darin)
+- Plattform `nordicnrf52` mit Arduino-Framework (Adafruit nRF52 BSP). PlatformIO
+  lädt beim ersten Build automatisch nach:
+  - Adafruit nRF52 Arduino-Core inkl. Nordic **SoftDevice S140** und Bootloader-Tool
+    `adafruit-nrfutil` (die SoftDevice-Binaries stehen unter Nordics eigener
+    Lizenz und sind **nicht** Bestandteil dieses Repositories)
+  - Adafruit TinyUSB Library (`>= 3.1.0`), Adafruit EPD (`^4.5.4`),
+    Adafruit GFX Library (`^1.11.9`)
+- Zum Flashen: ein **LilyGo T-Echo** mit dem werksseitigen Adafruit-DFU-Bootloader
+  per USB-C. Kein J-Link / SWD nötig.
+- Nur für das Regenerieren des Logos: ein lokales Python-Env mit `svglib`,
+  `reportlab`, `Pillow` (siehe [THW-Logo regenerieren](#thw-logo-regenerieren)).
+
+Eine Internetverbindung ist nur beim ersten Build (Paket-Download) nötig. Der
+gleiche Ablauf läuft in GitHub Actions, siehe
+[`.github/workflows/build.yml`](.github/workflows/build.yml).
+
+---
+
 ## Bauen & Flashen
 
 PlatformIO (CLI oder VSCode-Extension):
@@ -373,3 +425,44 @@ Dock, Akku geladen.
   steht. Die Adafruit-EPD-Library spammt bei jedem Partial-Refresh die
   Zeilen `---------------partial=============` und `Transfering:` auf
   Serial – kommt aus der Library und ist harmlos.
+
+---
+
+## Sicherheit
+
+Der GATT-Dienst ist bewusst **ohne Pairing** les- und schreibbar, das Advertising
+ist unverschlüsselt, und der USB-Bootloader nimmt Firmware ohne Authentifizierung
+an. Diese Eigenschaften sind für den Übungsbetrieb gewollt und in
+[SECURITY.md](SECURITY.md) dokumentiert, zusammen mit dem Meldeweg für
+Schwachstellen. Eine PIN gibt es in dieser Firmware nicht; die Diagnose-PIN der
+Sonde und der App ist in den jeweiligen Repositories beschrieben.
+
+## Hinweis zum THW-Logo
+
+`include/thw_logo.h` ist eine 1-Bit-Rasterung der Datei
+[THW.svg](https://commons.wikimedia.org/wiki/File:THW.svg) von Wikimedia Commons.
+Sie ist dort als gemeinfrei nach § 5 UrhG (amtliches Werk) eingeordnet. Das Logo
+ist unabhängig davon ein geschütztes Kennzeichen der Bundesanstalt Technisches
+Hilfswerk; es wird hier ausschließlich als Abschaltbild auf dem Display der
+Übungsgeräte verwendet. Wer die Firmware außerhalb des THW einsetzt, sollte das
+Logo und den Kontakt-Bildschirm (`drawKontaktScreen()` in `src/display_ui.cpp`)
+durch eigene Inhalte ersetzen.
+
+## Mitwirken
+
+Issues und Pull Requests sind willkommen. Bitte vor größeren Änderungen kurz ein
+Issue eröffnen. Beiträge werden unter der MIT-Lizenz des Projekts aufgenommen.
+Änderungen am Funkprotokoll (Manufacturer-Data, GATT) bitte immer zusammen mit
+Sonde und App abstimmen, damit die drei Projekte kompatibel bleiben.
+
+## Lizenz
+
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
+Copyright (c) 2026 Friedrich Engel.
+
+Die beim Build von PlatformIO nachgeladenen Komponenten (Adafruit nRF52 BSP,
+Nordic SoftDevice S140, Adafruit-Bibliotheken) stehen unter ihren jeweiligen
+eigenen Lizenzen und sind nicht Teil dieses Repositories.
+
+„THW" ist ein Kennzeichen der Bundesanstalt Technisches Hilfswerk; dieses
+Projekt steht in keiner offiziellen Verbindung dazu.

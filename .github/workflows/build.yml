@@ -1,0 +1,57 @@
+name: PlatformIO Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio/packages
+            ~/.platformio/platforms
+            ~/.cache/pip
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build firmware (t_echo)
+        run: pio run -e t_echo
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p out
+          cp .pio/build/t_echo/firmware.hex out/strahler-t_echo.hex
+          cp .pio/build/t_echo/firmware.zip out/strahler-t_echo-dfu.zip
+
+      - name: Upload firmware as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: strahler-firmware-t_echo
+          path: out/
+
+      - name: Attach firmware to GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          generate_release_notes: true
